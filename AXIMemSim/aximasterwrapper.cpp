@@ -10,6 +10,7 @@
 AXIMasterWrapper::AXIMasterWrapper(sc_module_name name)
 {
     // bind ready-valid I/Os for the bundled side to internal signals
+    /*
     readAddrValid.bind(m_readAddr_VALID);
     readAddrReady.bind(m_readAddr_READY);
 
@@ -24,6 +25,7 @@ AXIMasterWrapper::AXIMasterWrapper(sc_module_name name)
 
     writeRespValid.bind(m_writeResp_VALID);
     writeRespReady.bind(m_writeResp_READY);
+    */
 
 
     // declare the wrapper functions as SC_METHODs
@@ -120,8 +122,9 @@ void AXIMasterWrapper::setupReadAddrChannel(sc_in<bool> &ready, sc_out<bool> &va
                                             sc_out<unsigned int> &PROT, sc_out<unsigned int> &BURST, sc_out<bool> &LOCK, sc_out<unsigned int> &CACHE,
                                             sc_out<unsigned int> &QOS, sc_out<unsigned int> &ID, sc_out<unsigned int> &ADDR)
 {
-    ready.bind(m_readAddr_READY);
-    valid.bind(m_readAddr_VALID);
+    ready.bind(readAddrReady);
+    valid.bind(readAddrValid);
+
     SIZE.bind(m_readAddr_SIZE);
     LEN.bind(m_readAddr_LEN);
     PROT.bind(m_readAddr_PROT);
@@ -136,8 +139,9 @@ void AXIMasterWrapper::setupReadAddrChannel(sc_in<bool> &ready, sc_out<bool> &va
 void AXIMasterWrapper::setupReadDataChannel(sc_out<bool> &ready, sc_in<bool> &valid, sc_in<unsigned int> &ID, sc_in<bool> &LAST, sc_in<unsigned int> &RESP,
                                             sc_in<unsigned long> &DATA)
 {
-    ready.bind(m_readData_READY);
-    valid.bind(m_readData_VALID);
+    ready.bind(readDataReady);
+    valid.bind(readDataValid);
+
     ID.bind(m_readData_ID);
     LAST.bind(m_readData_LAST);
     RESP.bind(m_readData_RESP);
@@ -146,8 +150,9 @@ void AXIMasterWrapper::setupReadDataChannel(sc_out<bool> &ready, sc_in<bool> &va
 
 void AXIMasterWrapper::setupWriteDataChannel(sc_in<bool> &ready, sc_out<bool> &valid, sc_out<unsigned int> &STRB, sc_out<bool> &LAST, sc_out<unsigned long> &DATA)
 {
-    ready.bind(m_writeData_READY);
-    valid.bind(m_writeData_VALID);
+    ready.bind(writeDataReady);
+    valid.bind(writeDataValid);
+
     STRB.bind(m_writeData_STRB);
     LAST.bind(m_writeData_LAST);
     DATA.bind(m_writeData_DATA);
@@ -157,8 +162,9 @@ void AXIMasterWrapper::setupWriteAddrChannel(sc_in<bool> &ready, sc_out<bool> &v
                                              sc_out<unsigned int> &PROT, sc_out<unsigned int> &BURST, sc_out<bool> &LOCK, sc_out<unsigned int> &CACHE,
                                              sc_out<unsigned int> &QOS, sc_out<unsigned int> &ID, sc_out<unsigned int> &ADDR)
 {
-    ready.bind(m_writeAddr_READY);
-    valid.bind(m_writeAddr_VALID);
+    ready.bind(writeAddrReady);
+    valid.bind(writeAddrValid);
+
     SIZE.bind(m_writeAddr_SIZE);
     LEN.bind(m_writeAddr_LEN);
     PROT.bind(m_writeAddr_PROT);
@@ -172,8 +178,9 @@ void AXIMasterWrapper::setupWriteAddrChannel(sc_in<bool> &ready, sc_out<bool> &v
 
 void AXIMasterWrapper::setupWriteRespChannel(sc_out<bool> &ready, sc_in<bool> &valid, sc_in<unsigned int> &ID, sc_in<unsigned int> &RESP)
 {
-    ready.bind(m_writeResp_READY);
-    valid.bind(m_writeResp_VALID);
+    ready.bind(writeRespReady);
+    valid.bind(writeRespValid);
+
     ID.bind(m_writeResp_ID);
     RESP.bind(m_writeResp_RESP);
 }

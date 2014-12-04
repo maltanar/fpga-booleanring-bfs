@@ -19,7 +19,10 @@ SOURCES += main.cpp \
     types.cpp \
     axislave.cpp \
     aximasterwrapper.cpp \
-    axitypes.cpp
+    axitypes.cpp \
+    peripheral-src/VDataPuller__Syms.cpp \
+    peripheral-src/VDataPuller.cpp \
+    peripheral-src/verilated.cpp
 
 HEADERS += \
     types.h \
@@ -27,4 +30,6 @@ HEADERS += \
     params.h \
     axislave.h \
     axitypes.h \
-    aximasterwrapper.h
+    aximasterwrapper.h \
+    peripheral-src/VDataPuller__Syms.h \
+    peripheral-src/VDataPuller.h

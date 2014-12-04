@@ -10,4 +10,10 @@
 #define MEMORY_MAX_REQS         32
 #define MEMORY_LATENCY          (10*CLOCK_CYCLE)
 
+
+// debug verbosity control
+
+#define DEBUG_AXISLAVE(x)   0
+
+
 #endif // PARAMS_H

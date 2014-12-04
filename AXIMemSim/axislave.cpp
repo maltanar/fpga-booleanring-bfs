@@ -23,6 +23,7 @@ void AXISlave::pullReadRequests()
 
         if(m_readReqs.num_free() && readAddrValid)
         {
+            DEBUG_AXISLAVE(cout << "read request at " << sc_time_stamp() << ": " << readAddr.read());
             m_readReqs.write(readAddr.read());
         }
     }
@@ -54,8 +55,10 @@ void AXISlave::pushReadResponses()
         readData = data;
         readDataValid = true;
 
-        while(!readDataReady)
+        while(readDataReady.read() != true)
             wait(1);
+
+        DEBUG_AXISLAVE(cout << "read response at " << sc_time_stamp() << ": " << readData.read());
     }
 }
 
