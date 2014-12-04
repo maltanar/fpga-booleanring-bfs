@@ -19,3 +19,6 @@ project/plugins/project/
 # Qt
 *.pro.user
 build-*
+
+# Verilator
+obj_dir/
