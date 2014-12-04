@@ -2,6 +2,7 @@
 
 AXISlave::AXISlave(sc_module_name name) : sc_module(name)
 {
+    // TODO make FIFO sizes customizable
     // threads for reads
     SC_CTHREAD(pullReadRequests, clk.pos());
     SC_THREAD(performReads);
@@ -35,12 +36,26 @@ void AXISlave::performReads()
     {
         AXIAddress req = m_readReqs.read();
 
+        const unsigned int beatCount = req.len;
+        DEBUG_AXISLAVE(cout << "performing burst read of N-1 = " << beatCount << endl);
+
         AXIReadData data;
 
+        // TODO derive class for fixed-latency memory with reads/writes
         data.id = req.id;
         data.data = req.addr;
         data.resp = 0;
+        data.last = false;
 
+        for(unsigned int i = 0; i < beatCount; i++)
+        {
+            data.data = req.addr + i;
+            m_readResps.write(data);
+        }
+
+        // AXI sets burst length to N-1
+        data.data = req.addr + beatCount;
+        data.last = true;
         m_readResps.write(data);
     }
 }
@@ -49,6 +64,8 @@ void AXISlave::pushReadResponses()
 {
     while(1)
     {
+        wait(1);
+
         readDataValid = false;
 
         AXIReadData data = m_readResps.read();
@@ -99,13 +116,15 @@ void AXISlave::performWrites()
         AXIAddress req = m_writeReqs.read();
         AXIWriteData data = m_writeData.read();
 
-        // TODO implement some write functionality here
+        // TODO write burst support
+        // TODO write ID checks?
 
         AXIWriteResponse resp;
         resp.id = req.id;
         resp.resp = 0;
 
         m_writeResps.write(resp);
+
     }
 
 }
