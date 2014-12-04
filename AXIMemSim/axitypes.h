@@ -92,6 +92,8 @@ typedef struct AXIWriteData {
         data = rhs.data;
         strb = rhs.strb;
         last = rhs.last;
+
+        return *this;
     }
 
     bool operator== (const AXIWriteData& rhs) const
@@ -112,6 +114,8 @@ typedef struct  AXIWriteResponse {
     {
         id = rhs.id;
         resp = rhs.resp;
+
+        return *this;
     }
 
     bool operator== (const AXIWriteResponse& rhs) const
@@ -136,6 +140,8 @@ typedef struct AXIReadData {
         id = rhs.id;
         last = rhs.last;
         resp = rhs.resp;
+
+        return *this;
     }
 
     bool operator== (const AXIReadData& rhs) const
