@@ -16,9 +16,15 @@ LIBS += -lsystemc -lpthread
 
 SOURCES += main.cpp \
     fixedlatencymem.cpp \
-    types.cpp
+    types.cpp \
+    axislave.cpp \
+    aximasterwrapper.cpp \
+    axitypes.cpp
 
 HEADERS += \
     types.h \
     fixedlatencymem.h \
-    params.h
+    params.h \
+    axislave.h \
+    axitypes.h \
+    aximasterwrapper.h

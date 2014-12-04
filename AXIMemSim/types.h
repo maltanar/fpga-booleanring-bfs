@@ -1,13 +1,16 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-
+#include "axitypes.h"
 using namespace std;
 
 typedef unsigned int MemAddress;
 typedef unsigned int MemWord;
 
 
+
+
+// type definitions for internal memory messaging
 typedef struct {
     bool isWrite;
     MemWord writeData;
