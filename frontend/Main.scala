@@ -6,7 +6,8 @@ object MainObj {
     val width = 1
     val depth = 65536
     
-    chiselMain(args, () => Module(new DualPortRAM(width, depth)))
+    chiselMain(args, () => Module(new FrontendController()))
+    //chiselMain(args, () => Module(new DualPortRAM(width, depth)))
   }
 }
 

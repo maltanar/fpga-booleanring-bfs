@@ -16,34 +16,34 @@ class FrontendController() extends Module {
     val start = Bool(INPUT)
     val memFill = Bool(INPUT)
     val memDump = Bool(INPUT)
-    val nzCount = UInt(INPUT, 32)
     val colCount = UInt(INPUT, 32)
     
     // SpMV data inputs
     val colLengths = Decoupled(UInt(width = 32)).flip
     val rowIndices = Decoupled(UInt(width = 32)).flip
     
-    // i/o for intializing contents
+    // i/o for intializing vector mem contents
     val vectorMemDataIn = Decoupled(UInt(width = 32)).flip
     val vectorMemDataOut = Decoupled(UInt(width = 32))
     
-    // interface towards vector state memory
-    val portA = new MemReadWritePort(32, addrBitsA)
-    val portB = new MemReadWritePort(1, addrBitsB)    
+    // interface towards vector memory
+    val portA = new MemReadWritePort(32, addrBitsA).flip
+    val portB = new MemReadWritePort(1, addrBitsB).flip    
   }
   
   // internal state registers
-  val regNZCount = Reg(init = UInt(0, 32))
+  // number of columns in SpM (during execution, num of
+  // columns left to process)
   val regColCount = Reg(init = UInt(0, 32))
-  val regMemInit = Reg(init = UInt(0, addrBitsA))
-  
+  // elements left in current column
   val regCurrentColLen = Reg(init = UInt(0, 32))
   
-  // current X (input) vector index
+  // current X (input) vector index:
   val regXIndex = Reg(init = UInt(0, addrBitsB))
-  // upper bits act as VectorStorage portA read address
+  // - upper bits act as portA read address
   val xReadAddr = regXIndex(addrBitsB-1, 5)
-  // lower bits are used as input to a decoder
+  // - lower bits are used as input to a decoder that selects the
+  //   appropriate bit from the 32-bit word
   // TODO if we always treat X as dense, consider shifting instead
   val xBitSelect = regXIndex(4, 0)
  
@@ -55,39 +55,38 @@ class FrontendController() extends Module {
   io.colLengths.ready := Bool(false)
   io.rowIndices.ready := Bool(false)
   
-  // memory port A -- connected to vectorMemDataIn
-  io.portA.addr := regMemInit
+  // memory port A
+  io.portA.addr := xReadAddr
   io.portA.writeEn := Bool(false)
-  io.portA.dataIn := UInt(1)
+  io.portA.dataIn := io.vectorMemDataIn.bits
   
   // memory port B
   io.portB.addr := io.rowIndices.bits
   io.portB.writeEn := Bool(false)
-  io.portB.dataIn := currentXValue
+  io.portB.dataIn := UInt(1)
   
   // mem fill/dump queues
   io.vectorMemDataIn.ready := Bool(false)
-  io.vectorMemDataOut.bits := io.portA.dataOut
+  io.vectorMemDataOut.bits := currentXWord
   io.vectorMemDataOut.valid := Bool(false)
   
-  
-  
-  // state machine
+  // state machine definitions
   val sIdle :: sMemFill :: sMemDump :: sReadColLen :: sProcessColumn :: Nil = Enum(UInt(), 5)
   val regState = Reg(init = UInt(sIdle))
   
   switch ( regState ) {
     is ( sIdle ) {
-      regNZCount := io.nzCount
+      // save colCount from input
       regColCount := io.colCount
-      regMemInit := UInt(0)
+      // zero out other register values
+      regCurrentColLen := UInt(0)
       regXIndex := UInt(0)
       
       when ( io.start )
       {
-        when ( io.memDump ) { state := sMemDump}
-        .elsewhen ( io.memFill ) { state := sMemFill}
-        .otherwise { state := sReadColLen}
+        when ( io.memDump ) { regState := sMemDump}
+        .elsewhen ( io.memFill ) { regState := sMemFill}
+        .otherwise { regState := sReadColLen}
       }
     }
     
@@ -98,9 +97,11 @@ class FrontendController() extends Module {
       
       when ( io.vectorMemDataIn.valid ) {
         // increment address with each valid word
-        regMemInit := regMemInit + UInt(1)
+        // add 32 since 1 word = 32 bits 
+        // (word address is derived from upper bits of regXIndex)
+        regXIndex := regXIndex + UInt(32)
         // go back to idle when we have filled the whole memory
-        when ( regMemInit === UInt(memDepthWords-1) ) { state := sIdle}
+        when ( xReadAddr === UInt(memDepthWords-1) ) { regState := sIdle}
       }
     }
     
@@ -110,9 +111,10 @@ class FrontendController() extends Module {
       
       when ( io.vectorMemDataOut.ready ) {
         // increment address with each accepted word
-        regMemInit := regMemInit + UInt(1)
+        // add 32 since 1 word = 32 bits 
+        regXIndex := regXIndex + UInt(32)
         // go back to idle when we have dumped the whole memory
-        when ( regMemInit === UInt(memDepthWords-1) ) { state := sIdle}
+        when ( xReadAddr === UInt(memDepthWords-1) ) { regState := sIdle}
       }
     }
     
@@ -121,19 +123,19 @@ class FrontendController() extends Module {
       io.colLengths.ready := Bool(true)
       
       // when no more columns to process, go back to idle
-      when ( regColCount === UInt(0) ) { state := sIdle }
+      when ( regColCount === UInt(0) ) { regState := sIdle }
       // otherwise, wait for column length data from input queue
       .elsewhen ( io.colLengths.valid ) {
         // got column length, 
         regCurrentColLen := io.colLengths.bits
         regState := sProcessColumn
         regColCount := regColCount - UInt(1)
+      }
     }
     
     is ( sProcessColumn ) {
       // read in new column indices + process
       io.rowIndices.ready := Bool(true)
-      // TODO check the functionality here
       
       // detect end-of-column
       when ( regCurrentColLen === UInt(0) )
@@ -144,6 +146,13 @@ class FrontendController() extends Module {
         regState := sReadColLen
       }
       .elsewhen ( io.rowIndices.valid ) {
+        // this is the heart of the SpMV operation for BFS:
+        // y[i] = x[j] | y[i]
+        // - i is provided by the rowIndices FIFO
+        // - j is generated by regXIndex
+        // instead of computing a new result every time,
+        // we can use x[j] as write enable for writing a constant 1
+        io.portB.writeEn := currentXValue
         
         // decrement elements left in current col
         regCurrentColLen := regCurrentColLen - UInt(1)
@@ -151,5 +160,4 @@ class FrontendController() extends Module {
       }
     }
   }
-  
 }
