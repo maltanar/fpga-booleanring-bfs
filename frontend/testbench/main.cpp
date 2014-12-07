@@ -48,28 +48,35 @@ public:
         SC_CTHREAD(memoryPortB, clk.pos());
 
         SC_THREAD(runFrontendTests);
-        SC_THREAD(generateMemFill);
-        SC_THREAD(testMemDump);
+        SC_CTHREAD(generateMemFill, clk.pos());
+        SC_CTHREAD(testMemDump, clk.pos());
+
+        init_trace();
+    }
+
+    unsigned int valueForWord(unsigned int i)
+    {
+        return (i == 0 ? 1 : 0);
     }
 
     void generateMemFill()
     {
-        unsigned int memWordCount = 1024, current = 0;
+        unsigned int memWordCount = MEM_WORD_COUNT, current = 0;
 
         while(current < memWordCount)
         {
-            io_vectorMemDataIn_bits = current;
+            io_vectorMemDataIn_bits = valueForWord(current);
             io_vectorMemDataIn_valid = true;
 
             do {
-                wait(CLOCK_CYCLE);
+                wait(1);
             } while(io_vectorMemDataIn_ready == false);
 
 
             // test the latency insensitivity
             io_vectorMemDataIn_bits = 0xdeadbeef;
             io_vectorMemDataIn_valid = false;
-            wait(2*CLOCK_CYCLE);
+            wait(2);
 
             current++;
         }
@@ -82,34 +89,42 @@ public:
 
     void testMemDump()
     {
-        unsigned int memWordCount = 4, current = 0;
+        unsigned int memWordCount = MEM_WORD_COUNT, current = 0;
 
-        io_vectorMemDataOut_ready = true;
+        io_vectorMemDataOut_ready = false;
 
         while(current < memWordCount)
         {
-            do
-                wait(CLOCK_CYCLE);
-            while(io_vectorMemDataOut_valid == false);
-
-            if (current != io_vectorMemDataOut_bits)
-            {
-                cout << "data mismatch for memDump at element " << current << endl;
-                cout << "expected " << current << " found " << io_vectorMemDataOut_bits << " @" << NOW << endl;
-            }
-            else
-            {
-                cout << "data for element " << current << " OK @" << NOW << endl;
-            }
-
-            current++;
+            wait(1);
 
             io_vectorMemDataOut_ready = true;
+
+            if(io_vectorMemDataOut_valid )
+            {
+                unsigned int expected  = valueForWord(current);
+
+                if (io_vectorMemDataOut_bits != expected)
+                {
+                    cout << "data mismatch for memDump at element " << current << endl;
+                    cout << "expected " << expected << " found " << io_vectorMemDataOut_bits << " @" << NOW << endl;
+                }
+                else
+                {
+                    //cout << "data for element " << current << " OK @" << NOW << endl;
+                }
+
+                current++;
+
+                // test latency insensitivity
+                io_vectorMemDataOut_ready = false;
+                wait(2);
+            }
         }
 
         io_vectorMemDataOut_ready = false;
 
         cout << "testMemDump completed at " << sc_time_stamp() << endl;
+        finish_trace();
     }
 
     void runFrontendTests()
@@ -132,6 +147,7 @@ public:
         }
         else
             cout << "memory contents are correct" << endl;
+
         wait(5*CLOCK_CYCLE);
         cout << "starting memdump test at " << sc_time_stamp() << endl;
         io_memDump = true;
@@ -146,7 +162,7 @@ public:
         bool result = true;
 
         for(int i = 0; i < MEM_WORD_COUNT; i++)
-            if(m_memory[i] != i)
+            if(m_memory[i] != valueForWord(i))
             {
                 cout << "incorrect mem contents at word addr " << i << endl;
                 result=false;
@@ -189,19 +205,46 @@ public:
     unsigned int m_memory[MEM_WORD_COUNT];
     sc_event fillFinished, startDumpTest;
 
+    sc_trace_file* Tf;
+
+    void init_trace()
+    {
+        return;
+
+        Tf = sc_create_vcd_trace_file("traces");
+        ((vcd_trace_file*) Tf)->set_time_unit(1, SC_NS);
+
+        // add interesting signals and display names
+
+        sc_trace(Tf, clk, "clk");
+        sc_trace(Tf, io_portA_addr, "portA_addr");
+        sc_trace(Tf, io_portA_dataOut, "portA_dataOut");
+        sc_trace(Tf, io_vectorMemDataOut_ready, "out_ready");
+        sc_trace(Tf, io_vectorMemDataOut_valid, "out_valid");
+        sc_trace(Tf, io_vectorMemDataOut_bits, "out_data");
+    }
+
+    void finish_trace()
+    {
+        return;
+        sc_close_vcd_trace_file(Tf);
+    }
+
     void memoryPortA()
     {
         io_portA_dataOut = 0;
 
         while(1)
         {
+            wait(1);
+
             unsigned int addr = io_portA_addr;
             bool writeEn = io_portA_writeEn;
             unsigned int dataIn = io_portA_dataIn;
-
-            wait(1);
+            // cout << "portA addr " << addr << " val " << m_memory[addr] <<  " at " << NOW << endl;
 
             io_portA_dataOut = m_memory[addr];
+
             if(writeEn)
             {
                 m_memory[addr] = dataIn;
@@ -217,11 +260,11 @@ public:
 
         while(1)
         {
+            wait(1);
+
             unsigned int addr = io_portB_addr;
             bool writeEn = io_portB_writeEn;
             bool dataIn = io_portB_dataIn;
-
-            wait(1);
 
             io_portB_dataOut = (bool)((m_memory[addr >> 5] >> (addr & 0x1F)) & 0x1 == 0x1);
 

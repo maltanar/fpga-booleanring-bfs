@@ -84,7 +84,7 @@ class FrontendController() extends Module {
       
       when ( io.start )
       {
-        when ( io.memDump ) { regState := sMemDumpWait}
+        when ( io.memDump ) { regState := sMemDumpWait }
         .elsewhen ( io.memFill ) { regState := sMemFill}
         .otherwise { regState := sReadColLen}
       }
@@ -112,15 +112,16 @@ class FrontendController() extends Module {
       
       when ( io.vectorMemDataOut.ready ) {
         regState := sMemDumpLoad
+        // increment address and load next word for mem dump
+        // add 32 since 1 word = 32 bits 
+        regXIndex := regXIndex + UInt(32)
       }
     }
     
     is ( sMemDumpLoad ) {
-      // increment address and load next word for mem dump
-      // add 32 since 1 word = 32 bits 
-      regXIndex := regXIndex + UInt(32)
-      // go back to idle when we have dumped the whole memory
-      when ( xReadAddr === UInt(memDepthWords-1) ) { regState := sIdle}
+      // dummy state to delay the valid generation after receiving
+      // ready
+      when ( xReadAddr === UInt(memDepthWords) ) { regState := sIdle }
       .otherwise { regState := sMemDumpWait }
     }
     
