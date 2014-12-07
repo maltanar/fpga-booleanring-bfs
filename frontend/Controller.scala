@@ -71,7 +71,7 @@ class FrontendController() extends Module {
   io.vectorMemDataOut.valid := Bool(false)
   
   // state machine definitions
-  val sIdle :: sMemFill :: sMemDump :: sReadColLen :: sProcessColumn :: Nil = Enum(UInt(), 5)
+  val sIdle :: sMemFill :: sMemDumpWait :: sMemDumpLoad :: sReadColLen :: sProcessColumn :: Nil = Enum(UInt(), 6)
   val regState = Reg(init = UInt(sIdle))
   
   switch ( regState ) {
@@ -84,7 +84,7 @@ class FrontendController() extends Module {
       
       when ( io.start )
       {
-        when ( io.memDump ) { regState := sMemDump}
+        when ( io.memDump ) { regState := sMemDumpWait}
         .elsewhen ( io.memFill ) { regState := sMemFill}
         .otherwise { regState := sReadColLen}
       }
@@ -105,17 +105,23 @@ class FrontendController() extends Module {
       }
     }
     
-    is ( sMemDump ) {
+    is ( sMemDumpWait ) {
       // dump contents of vector storage onto vectorMemDataOut
+      // data already loaded from BRAM, set valid high
       io.vectorMemDataOut.valid := Bool(true)
       
       when ( io.vectorMemDataOut.ready ) {
-        // increment address with each accepted word
-        // add 32 since 1 word = 32 bits 
-        regXIndex := regXIndex + UInt(32)
-        // go back to idle when we have dumped the whole memory
-        when ( xReadAddr === UInt(memDepthWords-1) ) { regState := sIdle}
+        regState := sMemDumpLoad
       }
+    }
+    
+    is ( sMemDumpLoad ) {
+      // increment address and load next word for mem dump
+      // add 32 since 1 word = 32 bits 
+      regXIndex := regXIndex + UInt(32)
+      // go back to idle when we have dumped the whole memory
+      when ( xReadAddr === UInt(memDepthWords-1) ) { regState := sIdle}
+      .otherwise { regState := sMemDumpWait }
     }
     
     is ( sReadColLen ) {
