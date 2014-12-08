@@ -7,7 +7,8 @@ QT += core
 SOURCES += main.cpp \
     verilated.cpp \
     VFrontendController__Syms.cpp \
-    VFrontendController.cpp
+    VFrontendController.cpp \
+    CSCGraph.cpp
 
 SYSTEMC_ROOT = /home/maltanar/systemc
 SYSTEMC_ARCH = linux64
@@ -24,5 +25,6 @@ HEADERS += \
     VFrontendController__Syms.h \
     VFrontendController.h \
     InputFIFOAdapter.h \
-    OutputFIFOAdapter.h
+    OutputFIFOAdapter.h \
+    CSCGraph.h
 
