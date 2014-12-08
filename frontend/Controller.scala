@@ -130,29 +130,32 @@ class FrontendController() extends Module {
     
     is ( sReadColLen ) {
       // read in new column length from colLengths
-      // TODO assert this depending on regColCount === 0,
-      // otherwise we consume one element too many
-      io.colLengths.ready := Bool(true)
+      val endOfMatrix = (regColCount === UInt(0))
+      // don't generate ready if there are no more cols left
+      io.colLengths.ready := !endOfMatrix
       
       // when no more columns to process, go back to idle
-      when ( regColCount === UInt(0) ) { regState := sIdle }
+      when ( endOfMatrix ) { regState := sIdle }
       // otherwise, wait for column length data from input queue
       .elsewhen ( io.colLengths.valid ) {
-        // got column length, 
+        // got column length, start processing
         regCurrentColLen := io.colLengths.bits
         regState := sProcessColumn
+        // one less column to go
         regColCount := regColCount - UInt(1)
       }
     }
     
     is ( sProcessColumn ) {
       // read in new column indices + process
-      io.rowIndices.ready := Bool(true)
+      val endOfColumn = ( regCurrentColLen === UInt(0) )
+      // don't generate ready if there are no elements left
+      io.rowIndices.ready := !endOfColumn
       
-      // detect end-of-column
-      when ( regCurrentColLen === UInt(0) )
+      when ( endOfColumn )
       {
-        // end of column -- also corresponds to new x index
+        // end of column also corresponds to new x
+        // (increment j and get x[j] updated for next iter)
         regXIndex := regXIndex + UInt(1)
         // read in a new column length
         regState := sReadColLen
@@ -168,10 +171,6 @@ class FrontendController() extends Module {
         
         // decrement elements left in current col
         regCurrentColLen := regCurrentColLen - UInt(1)
-        // TODO maybe move sReadColLen transition here?
-        // if not we'll stay in the same state and pop
-        // one element too many due to ready=true
-        
       }
     }
   }
