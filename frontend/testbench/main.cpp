@@ -304,35 +304,6 @@ public:
         printMemBlockNonzeroes(buf, MEM_WORD_COUNT);
 
         return;
-
-        // set up a simple test case:
-        // 1 column with 1 element
-        io_colCount = 1;
-
-        // write col length and rowind to FIFOs
-        colLen.write(1);
-        rowInd.write(117);
-
-        // write some extra values to the FIFOs to e.g detect
-        // if we read too many items
-        colLen.write(1);
-        rowInd.write(117);
-
-        io_start = true;
-        wait(CLOCK_CYCLE);
-        io_start = false;
-        printState();   // should be sReadColLen
-        wait(CLOCK_CYCLE);
-        printState();   // should be sProcessColumn
-        wait(CLOCK_CYCLE);
-        printState();   // should be sProcessColumn (no elements left)
-        wait(CLOCK_CYCLE);
-        printState(); // should be sReadColLen
-        wait(CLOCK_CYCLE);
-        printState(); // should be sIdle
-
-        cout << "rowIndAdp transfer count = "  << rowIndAdp.getTransferCount() << endl;
-        cout << "colLenAdp transfer count = "  << colLenAdp.getTransferCount() << endl;
     }
 
     bool checkMemoryContents(unsigned int * cmp, unsigned int wordCount)
@@ -425,18 +396,18 @@ public:
             {
 
                 unsigned int ldWord = m_memory[addr >> 5];
-                /*
+
                 cout << "portB write addr = " << addr << " data = " << dataIn << " at " << NOW << endl;
                 cout << "ldWord addr = " << (addr >> 5) << " value = " << ldWord << endl;
                 cout << "ldWord desired bit index = " << (addr & 0x1F) << endl;
-                */
+
                 if(dataIn)
                     ldWord = ldWord | (1 << (addr & 0x1F));
                 else
                     ldWord = ldWord & ~(1 << (addr & 0x1F));
-                //cout << "ldWord new value = " << ldWord << endl;
+                cout << "ldWord new value = " << ldWord << endl;
 
-                m_memory[addr] = ldWord;
+                m_memory[addr >> 5] = ldWord;
             }
         }
 
