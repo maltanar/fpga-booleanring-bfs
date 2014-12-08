@@ -2,6 +2,8 @@
 #include <systemc.h>
 
 #include "VFrontendController.h"
+#include "InputFIFOAdapter.h"
+#include "OutputFIFOAdapter.h"
 
 #define CLOCK_CYCLE sc_time(1, SC_NS)
 #define NOW sc_time_stamp()
@@ -15,41 +17,59 @@ class FrontendTester : public sc_module
 public:
     FrontendTester(sc_module_name nm) :
         sc_module(nm),
-        uut("uut")
+        uut("uut"),
+        memInAdp("inadp"),
+        memOutAdp("outadp"),
+        rowIndAdp("riadp"),
+        colLenAdp("cladp")
     {
         uut.clk(clk);
         uut.reset(reset);
         uut.io_start(io_start);
         uut.io_memFill(io_memFill);
         uut.io_memDump(io_memDump);
-        uut.io_colLengths_ready(io_colLengths_ready);
-        uut.io_colLengths_valid(io_colLengths_valid);
-        uut.io_rowIndices_ready(io_rowIndices_ready);
-        uut.io_rowIndices_valid(io_rowIndices_valid);
-        uut.io_vectorMemDataIn_ready(io_vectorMemDataIn_ready);
-        uut.io_vectorMemDataIn_valid(io_vectorMemDataIn_valid);
-        uut.io_vectorMemDataOut_ready(io_vectorMemDataOut_ready);
-        uut.io_vectorMemDataOut_valid(io_vectorMemDataOut_valid);
+        uut.io_colCount(io_colCount);
+        uut.io_state(io_state);
+
         uut.io_portA_writeEn(io_portA_writeEn);
         uut.io_portB_dataIn(io_portB_dataIn);
         uut.io_portB_writeEn(io_portB_writeEn);
         uut.io_portB_dataOut(io_portB_dataOut);
         uut.io_portA_addr(io_portA_addr);
         uut.io_portB_addr(io_portB_addr);
-        uut.io_colCount(io_colCount);
-        uut.io_colLengths_bits(io_colLengths_bits);
-        uut.io_rowIndices_bits(io_rowIndices_bits);
-        uut.io_vectorMemDataIn_bits(io_vectorMemDataIn_bits);
-        uut.io_vectorMemDataOut_bits(io_vectorMemDataOut_bits);
         uut.io_portA_dataIn(io_portA_dataIn);
         uut.io_portA_dataOut(io_portA_dataOut);
-        uut.io_state(io_state);
+
+
+        // wrap vector memory in FIFO
+        memInAdp.clk(clk);
+        memInAdp.fifoInput.bind(memIn);
+        memInAdp.bindSignalInterface(uut.io_vectorMemDataIn_valid, uut.io_vectorMemDataIn_ready,
+                                     uut.io_vectorMemDataIn_bits);
+
+        // wrap vector memory out FIFO
+        memOutAdp.clk(clk);
+        memOutAdp.fifoOutput.bind(memOut);
+        memOutAdp.bindSignalInterface(uut.io_vectorMemDataOut_valid, uut.io_vectorMemDataOut_ready,
+                                     uut.io_vectorMemDataOut_bits);
+
+        // wrap col lengths FIFO
+        colLenAdp.clk(clk);
+        colLenAdp.fifoInput.bind(colLen);
+        colLenAdp.bindSignalInterface(uut.io_colLengths_valid, uut.io_colLengths_ready,
+                                      uut.io_colLengths_bits);
+
+        // wrap row indices FIFO
+        rowIndAdp.clk(clk);
+        rowIndAdp.fifoInput.bind(rowInd);
+        rowIndAdp.bindSignalInterface(uut.io_rowIndices_valid, uut.io_rowIndices_ready,
+                                      uut.io_rowIndices_bits);
 
         SC_CTHREAD(memoryPortA, clk.pos());
         SC_CTHREAD(memoryPortB, clk.pos());
 
         SC_THREAD(runFrontendTests);
-        SC_CTHREAD(generateMemFill, clk.pos());
+        SC_THREAD(generateMemFill);
         SC_CTHREAD(testMemDump, clk.pos());
 
         init_trace();
@@ -66,26 +86,18 @@ public:
 
         while(current < memWordCount)
         {
-            io_vectorMemDataIn_bits = valueForWord(current);
-            io_vectorMemDataIn_valid = true;
-
-            do {
-                wait(1);
-            } while(io_vectorMemDataIn_ready == false);
-
-
-            // test the latency insensitivity
-            io_vectorMemDataIn_bits = 0xdeadbeef;
-            io_vectorMemDataIn_valid = false;
-            wait(2);
-
+            memIn.write(valueForWord(current));
             current++;
         }
 
-        io_vectorMemDataIn_valid = false;
-
         cout << "generateMemFill completed at " << sc_time_stamp() << endl;
-        fillFinished.notify(SC_ZERO_TIME);
+
+        while(memIn.num_available() > 0)
+            wait(clk.posedge_event());
+
+        fillFinished.notify(CLOCK_CYCLE);
+
+        return;
     }
 
     void testMemDump()
@@ -94,37 +106,19 @@ public:
 
         while(current < memWordCount)
         {
-            io_vectorMemDataOut_ready = true;
-            wait(1);
+            unsigned int val = memOut.read();
+            unsigned int expected  = valueForWord(current);
 
-            if(io_vectorMemDataOut_valid )
+            if (val != expected)
             {
-                unsigned int expected  = valueForWord(current);
-
-                if (io_vectorMemDataOut_bits != expected)
-                {
-                    cout << "data mismatch for memDump at element " << current << endl;
-                    cout << "expected " << expected << " found " << io_vectorMemDataOut_bits << " @" << NOW << endl;
-                }
-                else
-                {
-                    //cout << "data for element " << current << " OK @" << NOW << endl;
-                }
-
-                current++;
+                cout << "data mismatch for memDump at element " << current << endl;
+                cout << "expected " << expected << " found " << val << " @" << NOW << endl;
             }
 
-            // test latency insensitivity
-            io_vectorMemDataOut_ready = false;
-            wait(2);
+            current++;
         }
 
-        wait(1);
-        io_vectorMemDataOut_ready = false;
-
-        cout << "testMemDump completed at " << sc_time_stamp() << endl;
-        cout << "portA addr = " << io_portA_addr << endl;
-        dumpFinished.notify(SC_ZERO_TIME);
+        dumpFinished.notify(CLOCK_CYCLE);
     }
 
     void printState()
@@ -174,8 +168,11 @@ public:
         io_start = false;
         printState();
         wait(fillFinished);
-        wait(0.5*CLOCK_CYCLE);
-        printState();
+        wait(1.5*CLOCK_CYCLE);
+        printState();   // should be sIdle
+
+        cout << "memInAdp transfer count = "  << memInAdp.getTransferCount() << endl;
+
         if(!checkMemoryContents())
         {
             cout << "memory contents incorrect after memfill!" << endl;
@@ -193,28 +190,38 @@ public:
         io_memDump = false;
         printState();
         wait(dumpFinished);
+        cout << "memOutAdp transfer count = "  << memOutAdp.getTransferCount() << endl;
         wait(0.5*CLOCK_CYCLE);
         printState();
 
+        // set up a simple test case:
+        // 1 column with 1 element
         io_colCount = 1;
+
+        // write col length and rowind to FIFOs
+        colLen.write(1);
+        rowInd.write(117);
+
+        // write some extra values to the FIFOs to e.g detect
+        // if we read too many items
+        colLen.write(1);
+        rowInd.write(117);
+
         io_start = true;
         wait(CLOCK_CYCLE);
         io_start = false;
         printState();   // should be sReadColLen
-        io_colLengths_bits = 1;
-        io_colLengths_valid = true;
         wait(CLOCK_CYCLE);
-        io_colLengths_valid = false;
         printState();   // should be sProcessColumn
-        io_rowIndices_bits = 66;
-        io_rowIndices_valid = true;
         wait(CLOCK_CYCLE);
-        io_rowIndices_valid = false;
         printState();   // should be sProcessColumn (no elements left)
         wait(CLOCK_CYCLE);
         printState(); // should be sReadColLen
         wait(CLOCK_CYCLE);
         printState(); // should be sIdle
+
+        cout << "rowIndAdp transfer count = "  << rowIndAdp.getTransferCount() << endl;
+        cout << "colLenAdp transfer count = "  << colLenAdp.getTransferCount() << endl;
     }
 
     bool checkMemoryContents()
@@ -225,8 +232,8 @@ public:
             if(m_memory[i] != valueForWord(i))
             {
                 cout << "incorrect mem contents at word addr " << i << endl;
+                cout << "expected " << valueForWord(i) << " found " << m_memory[i] << endl;
                 result=false;
-                break;
             }
 
         return result;
@@ -262,6 +269,11 @@ public:
     sc_signal<uint32_t>	io_portA_dataIn;
     sc_signal<uint32_t>	io_portA_dataOut;
 
+    sc_fifo<uint32_t> memIn, memOut, rowInd, colLen;
+    InputFIFOAdapter<uint32_t> memInAdp;
+    OutputFIFOAdapter<uint32_t> memOutAdp;
+    InputFIFOAdapter<uint32_t> rowIndAdp, colLenAdp;
+
     VFrontendController uut;
 
     unsigned int m_memory[MEM_WORD_COUNT];
@@ -272,24 +284,34 @@ public:
 
     void init_trace()
     {
-        return;
+        //return;
 
         Tf = sc_create_vcd_trace_file("traces");
-        ((vcd_trace_file*) Tf)->set_time_unit(1, SC_NS);
+        ((vcd_trace_file*) Tf)->set_time_unit(0.5, SC_NS);
 
         // add interesting signals and display names
 
         sc_trace(Tf, clk, "clk");
+        sc_trace(Tf, uut.io_vectorMemDataIn_bits, "in_data");
+        sc_trace(Tf, uut.io_vectorMemDataIn_ready, "in_ready");
+        sc_trace(Tf, uut.io_vectorMemDataIn_valid, "in_valid");
+
         sc_trace(Tf, io_portA_addr, "portA_addr");
+        sc_trace(Tf, io_portA_dataIn, "portA_dataIn");
+        sc_trace(Tf, io_portA_writeEn, "portA_writeEn");
         sc_trace(Tf, io_portA_dataOut, "portA_dataOut");
+
+        /*
         sc_trace(Tf, io_vectorMemDataOut_ready, "out_ready");
         sc_trace(Tf, io_vectorMemDataOut_valid, "out_valid");
         sc_trace(Tf, io_vectorMemDataOut_bits, "out_data");
+        */
     }
 
     void finish_trace()
     {
-        return;
+        //return;
+
         sc_close_vcd_trace_file(Tf);
     }
 
@@ -358,6 +380,7 @@ int sc_main(int argc, char *argv[])
     t.clk(clk);
 
     sc_start();
+    t.finish_trace();
 
     return 0;
 }

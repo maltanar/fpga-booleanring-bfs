@@ -186,7 +186,7 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
     __Vdly__v__DOT__regXIndex = vlTOPp->v__DOT__regXIndex;
     __Vdly__v__DOT__regCurrentColLen = vlTOPp->v__DOT__regCurrentColLen;
     __Vdly__v__DOT__regState = vlTOPp->v__DOT__regState;
-    // ALWAYS at FrontendController.v:233
+    // ALWAYS at FrontendController.v:241
     if (vlTOPp->__Vcellinp__v__reset) {
 	__Vdly__v__DOT__regColCount = 0;
     } else {
@@ -199,7 +199,7 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
 	    }
 	}
     }
-    // ALWAYS at FrontendController.v:199
+    // ALWAYS at FrontendController.v:207
     if (vlTOPp->__Vcellinp__v__reset) {
 	__Vdly__v__DOT__regXIndex = 0;
     } else {
@@ -224,7 +224,7 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
 	    }
 	}
     }
-    // ALWAYS at FrontendController.v:240
+    // ALWAYS at FrontendController.v:248
     if (vlTOPp->__Vcellinp__v__reset) {
 	__Vdly__v__DOT__regCurrentColLen = 0;
     } else {
@@ -241,7 +241,7 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
 	    }
 	}
     }
-    // ALWAYS at FrontendController.v:210
+    // ALWAYS at FrontendController.v:218
     if (vlTOPp->__Vcellinp__v__reset) {
 	__Vdly__v__DOT__regState = 0;
     } else {
@@ -297,8 +297,8 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
 	}
     }
     vlTOPp->v__DOT__regCurrentColLen = __Vdly__v__DOT__regCurrentColLen;
-    vlTOPp->v__DOT__regColCount = __Vdly__v__DOT__regColCount;
     vlTOPp->v__DOT__regXIndex = __Vdly__v__DOT__regXIndex;
+    vlTOPp->v__DOT__regColCount = __Vdly__v__DOT__regColCount;
     vlTOPp->v__DOT__regState = __Vdly__v__DOT__regState;
     VL_ASSIGN_SII(10,vlTOPp->io_portA_addr, (0x3ff 
 					     & ((IData)(vlTOPp->v__DOT__regXIndex) 
@@ -307,11 +307,15 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
 		  (2 == (IData)(vlTOPp->v__DOT__regState)));
     VL_ASSIGN_SII(1,vlTOPp->io_vectorMemDataIn_ready, 
 		  (1 == (IData)(vlTOPp->v__DOT__regState)));
-    VL_ASSIGN_SII(1,vlTOPp->io_rowIndices_ready, (5 
-						  == (IData)(vlTOPp->v__DOT__regState)));
-    VL_ASSIGN_SII(1,vlTOPp->io_colLengths_ready, (4 
-						  == (IData)(vlTOPp->v__DOT__regState)));
     VL_ASSIGN_SII(32,vlTOPp->io_state, vlTOPp->v__DOT__regState);
+    VL_ASSIGN_SII(1,vlTOPp->io_rowIndices_ready, ((5 
+						   == (IData)(vlTOPp->v__DOT__regState)) 
+						  & (0 
+						     != vlTOPp->v__DOT__regCurrentColLen)));
+    VL_ASSIGN_SII(1,vlTOPp->io_colLengths_ready, ((4 
+						   == (IData)(vlTOPp->v__DOT__regState)) 
+						  & (0 
+						     != vlTOPp->v__DOT__regColCount)));
     vlTOPp->v__DOT__T49 = ((5 == (IData)(vlTOPp->v__DOT__regState)) 
 			   & (0 == vlTOPp->v__DOT__regCurrentColLen));
 }
@@ -357,13 +361,17 @@ void VFrontendController::_settle__TOP__6(VFrontendController__Syms* __restrict 
 		  (2 == (IData)(vlTOPp->v__DOT__regState)));
     VL_ASSIGN_SII(1,vlTOPp->io_vectorMemDataIn_ready, 
 		  (1 == (IData)(vlTOPp->v__DOT__regState)));
-    VL_ASSIGN_SII(1,vlTOPp->io_rowIndices_ready, (5 
-						  == (IData)(vlTOPp->v__DOT__regState)));
-    VL_ASSIGN_SII(1,vlTOPp->io_colLengths_ready, (4 
-						  == (IData)(vlTOPp->v__DOT__regState)));
     VL_ASSIGN_SII(32,vlTOPp->io_state, vlTOPp->v__DOT__regState);
     VL_ASSIGN_SII(1,vlTOPp->io_portA_writeEn, ((1 == (IData)(vlTOPp->v__DOT__regState)) 
 					       & (IData)(vlTOPp->__Vcellinp__v__io_vectorMemDataIn_valid)));
+    VL_ASSIGN_SII(1,vlTOPp->io_rowIndices_ready, ((5 
+						   == (IData)(vlTOPp->v__DOT__regState)) 
+						  & (0 
+						     != vlTOPp->v__DOT__regCurrentColLen)));
+    VL_ASSIGN_SII(1,vlTOPp->io_colLengths_ready, ((4 
+						   == (IData)(vlTOPp->v__DOT__regState)) 
+						  & (0 
+						     != vlTOPp->v__DOT__regColCount)));
     vlTOPp->v__DOT__T21 = ((0 == (IData)(vlTOPp->v__DOT__regState)) 
 			   & (IData)(vlTOPp->__Vcellinp__v__io_start));
     vlTOPp->v__DOT__T43 = ((1 == (IData)(vlTOPp->v__DOT__regState)) 

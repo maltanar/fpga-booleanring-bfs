@@ -16,9 +16,13 @@ VERILATOR_ROOT = /usr/share/verilator
 QMAKE_INCDIR += $$SYSTEMC_ROOT/include $$VERILATOR_ROOT/include $$VERILATOR_ROOT/include/vltstd
 QMAKE_LIBDIR += $$SYSTEMC_ROOT/lib-$$SYSTEMC_ARCH
 
+DEPENDPATH *= $${INCLUDEPATH}
+
 LIBS += -lsystemc -lpthread
 
 HEADERS += \
     VFrontendController__Syms.h \
-    VFrontendController.h
+    VFrontendController.h \
+    InputFIFOAdapter.h \
+    OutputFIFOAdapter.h
 
