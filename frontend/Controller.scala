@@ -130,6 +130,8 @@ class FrontendController() extends Module {
     
     is ( sReadColLen ) {
       // read in new column length from colLengths
+      // TODO assert this depending on regColCount === 0,
+      // otherwise we consume one element too many
       io.colLengths.ready := Bool(true)
       
       // when no more columns to process, go back to idle
@@ -166,6 +168,9 @@ class FrontendController() extends Module {
         
         // decrement elements left in current col
         regCurrentColLen := regCurrentColLen - UInt(1)
+        // TODO maybe move sReadColLen transition here?
+        // if not we'll stay in the same state and pop
+        // one element too many due to ready=true
         
       }
     }

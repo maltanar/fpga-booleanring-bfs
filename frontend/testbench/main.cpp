@@ -162,17 +162,19 @@ public:
     {
         reset = true;
         wait(10*CLOCK_CYCLE);
+        wait(0.5*CLOCK_CYCLE);
         reset = false;
         // launch memory fill mode
         printState();
         cout << "starting memfill test @" << sc_time_stamp() << endl;
         io_memFill = true;
         io_start = true;
-        wait(2*CLOCK_CYCLE);
+        wait(CLOCK_CYCLE);
         io_memFill = false;
         io_start = false;
         printState();
         wait(fillFinished);
+        wait(0.5*CLOCK_CYCLE);
         printState();
         if(!checkMemoryContents())
         {
@@ -186,14 +188,33 @@ public:
         cout << "starting memdump test at " << sc_time_stamp() << endl;
         io_memDump = true;
         io_start = true;
-        wait(2*CLOCK_CYCLE);
-        printState();
+        wait(CLOCK_CYCLE);
         io_start = false;
         io_memDump = false;
+        printState();
         wait(dumpFinished);
+        wait(0.5*CLOCK_CYCLE);
         printState();
 
         io_colCount = 1;
+        io_start = true;
+        wait(CLOCK_CYCLE);
+        io_start = false;
+        printState();   // should be sReadColLen
+        io_colLengths_bits = 1;
+        io_colLengths_valid = true;
+        wait(CLOCK_CYCLE);
+        io_colLengths_valid = false;
+        printState();   // should be sProcessColumn
+        io_rowIndices_bits = 66;
+        io_rowIndices_valid = true;
+        wait(CLOCK_CYCLE);
+        io_rowIndices_valid = false;
+        printState();   // should be sProcessColumn (no elements left)
+        wait(CLOCK_CYCLE);
+        printState(); // should be sReadColLen
+        wait(CLOCK_CYCLE);
+        printState(); // should be sIdle
     }
 
     bool checkMemoryContents()
@@ -312,11 +333,15 @@ public:
 
             if(writeEn)
             {
+                cout << "portB write addr = " << addr << " data = " << dataIn << " at " << NOW << endl;
                 unsigned int ldWord = m_memory[addr >> 5];
+                cout << "ldWord addr = " << (addr >> 5) << " value = " << ldWord << endl;
+                cout << "ldWord desired bit index = " << (addr & 0x1F) << endl;
                 if(dataIn)
                     ldWord = ldWord | (1 << (addr & 0x1F));
                 else
                     ldWord = ldWord & ~(1 << (addr & 0x1F));
+                cout << "ldWord new value = " << ldWord << endl;
 
                 m_memory[addr] = ldWord;
             }
