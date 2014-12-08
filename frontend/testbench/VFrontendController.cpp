@@ -24,8 +24,9 @@ VL_SC_CTOR_IMP(VFrontendController)
       io_portA_writeEn("io_portA_writeEn"), io_portB_dataIn("io_portB_dataIn"), 
       io_portB_writeEn("io_portB_writeEn"), io_portB_dataOut("io_portB_dataOut"), 
       io_portA_addr("io_portA_addr"), io_portB_addr("io_portB_addr"), 
-      io_colCount("io_colCount"), io_colLengths_bits("io_colLengths_bits"), 
-      io_rowIndices_bits("io_rowIndices_bits"), io_vectorMemDataIn_bits("io_vectorMemDataIn_bits"), 
+      io_state("io_state"), io_colCount("io_colCount"), 
+      io_colLengths_bits("io_colLengths_bits"), io_rowIndices_bits("io_rowIndices_bits"), 
+      io_vectorMemDataIn_bits("io_vectorMemDataIn_bits"), 
       io_vectorMemDataOut_bits("io_vectorMemDataOut_bits"), 
       io_portA_dataIn("io_portA_dataIn"), io_portA_dataOut("io_portA_dataOut")
 #endif
@@ -70,12 +71,12 @@ VL_SC_CTOR_IMP(VFrontendController)
     v__DOT__regState = VL_RAND_RESET_I(3);
     v__DOT__T21 = VL_RAND_RESET_I(1);
     v__DOT__regColCount = VL_RAND_RESET_I(32);
-    v__DOT__T41 = VL_RAND_RESET_I(1);
-    v__DOT__T45 = VL_RAND_RESET_I(1);
-    v__DOT__T48 = VL_RAND_RESET_I(1);
-    v__DOT__T51 = VL_RAND_RESET_I(1);
+    v__DOT__T39 = VL_RAND_RESET_I(1);
+    v__DOT__T43 = VL_RAND_RESET_I(1);
+    v__DOT__T46 = VL_RAND_RESET_I(1);
+    v__DOT__T49 = VL_RAND_RESET_I(1);
     v__DOT__regCurrentColLen = VL_RAND_RESET_I(32);
-    v__DOT__T59 = VL_RAND_RESET_I(1);
+    v__DOT__T57 = VL_RAND_RESET_I(1);
     __Vclklast__TOP____Vcellinp__v__clk = VL_RAND_RESET_I(1);
 }
 
@@ -185,11 +186,11 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
     __Vdly__v__DOT__regXIndex = vlTOPp->v__DOT__regXIndex;
     __Vdly__v__DOT__regCurrentColLen = vlTOPp->v__DOT__regCurrentColLen;
     __Vdly__v__DOT__regState = vlTOPp->v__DOT__regState;
-    // ALWAYS at FrontendController.v:235
+    // ALWAYS at FrontendController.v:233
     if (vlTOPp->__Vcellinp__v__reset) {
 	__Vdly__v__DOT__regColCount = 0;
     } else {
-	if (vlTOPp->v__DOT__T41) {
+	if (vlTOPp->v__DOT__T39) {
 	    __Vdly__v__DOT__regColCount = (vlTOPp->v__DOT__regColCount 
 					   - (IData)(1));
 	} else {
@@ -198,20 +199,20 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
 	    }
 	}
     }
-    // ALWAYS at FrontendController.v:201
+    // ALWAYS at FrontendController.v:199
     if (vlTOPp->__Vcellinp__v__reset) {
 	__Vdly__v__DOT__regXIndex = 0;
     } else {
-	if (vlTOPp->v__DOT__T51) {
+	if (vlTOPp->v__DOT__T49) {
 	    __Vdly__v__DOT__regXIndex = (0x7fff & ((IData)(1) 
 						   + (IData)(vlTOPp->v__DOT__regXIndex)));
 	} else {
-	    if (vlTOPp->v__DOT__T48) {
+	    if (vlTOPp->v__DOT__T46) {
 		__Vdly__v__DOT__regXIndex = (0x7fff 
 					     & ((IData)(0x20) 
 						+ (IData)(vlTOPp->v__DOT__regXIndex)));
 	    } else {
-		if (vlTOPp->v__DOT__T45) {
+		if (vlTOPp->v__DOT__T43) {
 		    __Vdly__v__DOT__regXIndex = (0x7fff 
 						 & ((IData)(0x20) 
 						    + (IData)(vlTOPp->v__DOT__regXIndex)));
@@ -223,15 +224,15 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
 	    }
 	}
     }
-    // ALWAYS at FrontendController.v:242
+    // ALWAYS at FrontendController.v:240
     if (vlTOPp->__Vcellinp__v__reset) {
 	__Vdly__v__DOT__regCurrentColLen = 0;
     } else {
-	if (vlTOPp->v__DOT__T59) {
+	if (vlTOPp->v__DOT__T57) {
 	    __Vdly__v__DOT__regCurrentColLen = (vlTOPp->v__DOT__regCurrentColLen 
 						- (IData)(1));
 	} else {
-	    if (vlTOPp->v__DOT__T41) {
+	    if (vlTOPp->v__DOT__T39) {
 		__Vdly__v__DOT__regCurrentColLen = vlTOPp->__Vcellinp__v__io_colLengths_bits;
 	    } else {
 		if ((0 == (IData)(vlTOPp->v__DOT__regState))) {
@@ -240,34 +241,32 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
 	    }
 	}
     }
-    // ALWAYS at FrontendController.v:212
+    // ALWAYS at FrontendController.v:210
     if (vlTOPp->__Vcellinp__v__reset) {
 	__Vdly__v__DOT__regState = 0;
     } else {
-	if (vlTOPp->v__DOT__T51) {
+	if (vlTOPp->v__DOT__T49) {
 	    __Vdly__v__DOT__regState = 4;
 	} else {
-	    if (vlTOPp->v__DOT__T41) {
+	    if (vlTOPp->v__DOT__T39) {
 		__Vdly__v__DOT__regState = 5;
 	    } else {
 		if (((4 == (IData)(vlTOPp->v__DOT__regState)) 
 		     & (0 == vlTOPp->v__DOT__regColCount))) {
 		    __Vdly__v__DOT__regState = 0;
 		} else {
-		    if (((3 == (IData)(vlTOPp->v__DOT__regState)) 
-			 & (0x400 != (0x3ff & ((IData)(vlTOPp->v__DOT__regXIndex) 
-					       >> 5))))) {
+		    if ((3 == (IData)(vlTOPp->v__DOT__regState))) {
 			__Vdly__v__DOT__regState = 2;
 		    } else {
-			if (((3 == (IData)(vlTOPp->v__DOT__regState)) 
-			     & (0x400 == (0x3ff & ((IData)(vlTOPp->v__DOT__regXIndex) 
+			if (((IData)(vlTOPp->v__DOT__T46) 
+			     & (0x3ff == (0x3ff & ((IData)(vlTOPp->v__DOT__regXIndex) 
 						   >> 5))))) {
 			    __Vdly__v__DOT__regState = 0;
 			} else {
-			    if (vlTOPp->v__DOT__T48) {
+			    if (vlTOPp->v__DOT__T46) {
 				__Vdly__v__DOT__regState = 3;
 			    } else {
-				if (((IData)(vlTOPp->v__DOT__T45) 
+				if (((IData)(vlTOPp->v__DOT__T43) 
 				     & (0x3ff == (0x3ff 
 						  & ((IData)(vlTOPp->v__DOT__regXIndex) 
 						     >> 5))))) {
@@ -285,7 +284,7 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
 					} else {
 					    if (((IData)(vlTOPp->v__DOT__T21) 
 						 & (IData)(vlTOPp->__Vcellinp__v__io_memDump))) {
-						__Vdly__v__DOT__regState = 3;
+						__Vdly__v__DOT__regState = 2;
 					    }
 					}
 				    }
@@ -312,7 +311,8 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
 						  == (IData)(vlTOPp->v__DOT__regState)));
     VL_ASSIGN_SII(1,vlTOPp->io_colLengths_ready, (4 
 						  == (IData)(vlTOPp->v__DOT__regState)));
-    vlTOPp->v__DOT__T51 = ((5 == (IData)(vlTOPp->v__DOT__regState)) 
+    VL_ASSIGN_SII(32,vlTOPp->io_state, vlTOPp->v__DOT__regState);
+    vlTOPp->v__DOT__T49 = ((5 == (IData)(vlTOPp->v__DOT__regState)) 
 			   & (0 == vlTOPp->v__DOT__regCurrentColLen));
 }
 
@@ -329,14 +329,14 @@ void VFrontendController::_combo__TOP__5(VFrontendController__Syms* __restrict v
 					       & (IData)(vlTOPp->__Vcellinp__v__io_vectorMemDataIn_valid)));
     vlTOPp->v__DOT__T21 = ((0 == (IData)(vlTOPp->v__DOT__regState)) 
 			   & (IData)(vlTOPp->__Vcellinp__v__io_start));
-    vlTOPp->v__DOT__T45 = ((1 == (IData)(vlTOPp->v__DOT__regState)) 
+    vlTOPp->v__DOT__T43 = ((1 == (IData)(vlTOPp->v__DOT__regState)) 
 			   & (IData)(vlTOPp->__Vcellinp__v__io_vectorMemDataIn_valid));
-    vlTOPp->v__DOT__T48 = ((2 == (IData)(vlTOPp->v__DOT__regState)) 
+    vlTOPp->v__DOT__T46 = ((2 == (IData)(vlTOPp->v__DOT__regState)) 
 			   & (IData)(vlTOPp->__Vcellinp__v__io_vectorMemDataOut_ready));
-    vlTOPp->v__DOT__T41 = ((4 == (IData)(vlTOPp->v__DOT__regState)) 
+    vlTOPp->v__DOT__T39 = ((4 == (IData)(vlTOPp->v__DOT__regState)) 
 			   & ((0 != vlTOPp->v__DOT__regColCount) 
 			      & (IData)(vlTOPp->__Vcellinp__v__io_colLengths_valid)));
-    vlTOPp->v__DOT__T59 = ((5 == (IData)(vlTOPp->v__DOT__regState)) 
+    vlTOPp->v__DOT__T57 = ((5 == (IData)(vlTOPp->v__DOT__regState)) 
 			   & ((0 != vlTOPp->v__DOT__regCurrentColLen) 
 			      & (IData)(vlTOPp->__Vcellinp__v__io_rowIndices_valid)));
 }
@@ -361,23 +361,24 @@ void VFrontendController::_settle__TOP__6(VFrontendController__Syms* __restrict 
 						  == (IData)(vlTOPp->v__DOT__regState)));
     VL_ASSIGN_SII(1,vlTOPp->io_colLengths_ready, (4 
 						  == (IData)(vlTOPp->v__DOT__regState)));
+    VL_ASSIGN_SII(32,vlTOPp->io_state, vlTOPp->v__DOT__regState);
     VL_ASSIGN_SII(1,vlTOPp->io_portA_writeEn, ((1 == (IData)(vlTOPp->v__DOT__regState)) 
 					       & (IData)(vlTOPp->__Vcellinp__v__io_vectorMemDataIn_valid)));
     vlTOPp->v__DOT__T21 = ((0 == (IData)(vlTOPp->v__DOT__regState)) 
 			   & (IData)(vlTOPp->__Vcellinp__v__io_start));
-    vlTOPp->v__DOT__T45 = ((1 == (IData)(vlTOPp->v__DOT__regState)) 
+    vlTOPp->v__DOT__T43 = ((1 == (IData)(vlTOPp->v__DOT__regState)) 
 			   & (IData)(vlTOPp->__Vcellinp__v__io_vectorMemDataIn_valid));
-    vlTOPp->v__DOT__T48 = ((2 == (IData)(vlTOPp->v__DOT__regState)) 
+    vlTOPp->v__DOT__T46 = ((2 == (IData)(vlTOPp->v__DOT__regState)) 
 			   & (IData)(vlTOPp->__Vcellinp__v__io_vectorMemDataOut_ready));
-    vlTOPp->v__DOT__T51 = ((5 == (IData)(vlTOPp->v__DOT__regState)) 
+    vlTOPp->v__DOT__T49 = ((5 == (IData)(vlTOPp->v__DOT__regState)) 
 			   & (0 == vlTOPp->v__DOT__regCurrentColLen));
-    vlTOPp->v__DOT__T41 = ((4 == (IData)(vlTOPp->v__DOT__regState)) 
+    vlTOPp->v__DOT__T39 = ((4 == (IData)(vlTOPp->v__DOT__regState)) 
 			   & ((0 != vlTOPp->v__DOT__regColCount) 
 			      & (IData)(vlTOPp->__Vcellinp__v__io_colLengths_valid)));
-    vlTOPp->v__DOT__T59 = ((5 == (IData)(vlTOPp->v__DOT__regState)) 
+    vlTOPp->v__DOT__T57 = ((5 == (IData)(vlTOPp->v__DOT__regState)) 
 			   & ((0 != vlTOPp->v__DOT__regCurrentColLen) 
 			      & (IData)(vlTOPp->__Vcellinp__v__io_rowIndices_valid)));
-    VL_ASSIGN_SII(1,vlTOPp->io_portB_writeEn, ((IData)(vlTOPp->v__DOT__T59) 
+    VL_ASSIGN_SII(1,vlTOPp->io_portB_writeEn, ((IData)(vlTOPp->v__DOT__T57) 
 					       & (vlTOPp->__Vcellinp__v__io_portA_dataOut 
 						  >> 
 						  (0x1f 
@@ -388,7 +389,7 @@ void VFrontendController::_combo__TOP__7(VFrontendController__Syms* __restrict v
     VL_DEBUG_IF(VL_PRINTF("    VFrontendController::_combo__TOP__7\n"); );
     VFrontendController* __restrict vlTOPp VL_ATTR_UNUSED = vlSymsp->TOPp;
     // Body
-    VL_ASSIGN_SII(1,vlTOPp->io_portB_writeEn, ((IData)(vlTOPp->v__DOT__T59) 
+    VL_ASSIGN_SII(1,vlTOPp->io_portB_writeEn, ((IData)(vlTOPp->v__DOT__T57) 
 					       & (vlTOPp->__Vcellinp__v__io_portA_dataOut 
 						  >> 
 						  (0x1f 

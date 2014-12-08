@@ -13,6 +13,7 @@ class FrontendController() extends Module {
   val io = new Bundle {
   
     // control and status interface
+    val state = UInt(OUTPUT, 32)
     val start = Bool(INPUT)
     val memFill = Bool(INPUT)
     val memDump = Bool(INPUT)
@@ -74,6 +75,8 @@ class FrontendController() extends Module {
   val sIdle :: sMemFill :: sMemDumpWait :: sMemDumpLoad :: sReadColLen :: sProcessColumn :: Nil = Enum(UInt(), 6)
   val regState = Reg(init = UInt(sIdle))
   
+  io.state := regState
+  
   switch ( regState ) {
     is ( sIdle ) {
       // save colCount from input
@@ -115,14 +118,14 @@ class FrontendController() extends Module {
         // increment address and load next word for mem dump
         // add 32 since 1 word = 32 bits 
         regXIndex := regXIndex + UInt(32)
+        when ( xReadAddr === UInt(memDepthWords-1) ) { regState := sIdle }
       }
     }
     
     is ( sMemDumpLoad ) {
       // dummy state to delay the valid generation after receiving
       // ready
-      when ( xReadAddr === UInt(memDepthWords) ) { regState := sIdle }
-      .otherwise { regState := sMemDumpWait }
+      regState := sMemDumpWait
     }
     
     is ( sReadColLen ) {

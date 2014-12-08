@@ -43,6 +43,7 @@ public:
         uut.io_vectorMemDataOut_bits(io_vectorMemDataOut_bits);
         uut.io_portA_dataIn(io_portA_dataIn);
         uut.io_portA_dataOut(io_portA_dataOut);
+        uut.io_state(io_state);
 
         SC_CTHREAD(memoryPortA, clk.pos());
         SC_CTHREAD(memoryPortB, clk.pos());
@@ -91,13 +92,10 @@ public:
     {
         unsigned int memWordCount = MEM_WORD_COUNT, current = 0;
 
-        io_vectorMemDataOut_ready = false;
-
         while(current < memWordCount)
         {
-            wait(1);
-
             io_vectorMemDataOut_ready = true;
+            wait(1);
 
             if(io_vectorMemDataOut_valid )
             {
@@ -114,17 +112,50 @@ public:
                 }
 
                 current++;
-
-                // test latency insensitivity
-                io_vectorMemDataOut_ready = false;
-                wait(2);
             }
+
+            // test latency insensitivity
+            io_vectorMemDataOut_ready = false;
+            wait(2);
         }
 
+        wait(1);
         io_vectorMemDataOut_ready = false;
 
         cout << "testMemDump completed at " << sc_time_stamp() << endl;
-        finish_trace();
+        cout << "portA addr = " << io_portA_addr << endl;
+        dumpFinished.notify(SC_ZERO_TIME);
+    }
+
+    void printState()
+    {
+        cout << "currentState @" << NOW << ": ";
+
+        switch(io_state)
+        {
+        case 0:
+            cout << "sIdle";
+            break;
+        case 1:
+            cout << "sMemFill";
+            break;
+        case 2:
+            cout << "sMemDumpWait";
+            break;
+        case 3:
+            cout << "sMemDumpLoad";
+            break;
+        case 4:
+            cout << "sReadColLen";
+            break;
+        case 5:
+            cout << "sProcessColumn";
+            break;
+        default:
+            cout << "unknown! -- " << io_state;
+        }
+
+        cout << endl;
     }
 
     void runFrontendTests()
@@ -133,13 +164,16 @@ public:
         wait(10*CLOCK_CYCLE);
         reset = false;
         // launch memory fill mode
+        printState();
         cout << "starting memfill test @" << sc_time_stamp() << endl;
         io_memFill = true;
         io_start = true;
-        wait(CLOCK_CYCLE);
+        wait(2*CLOCK_CYCLE);
         io_memFill = false;
         io_start = false;
+        printState();
         wait(fillFinished);
+        printState();
         if(!checkMemoryContents())
         {
             cout << "memory contents incorrect after memfill!" << endl;
@@ -152,9 +186,14 @@ public:
         cout << "starting memdump test at " << sc_time_stamp() << endl;
         io_memDump = true;
         io_start = true;
-        wait(CLOCK_CYCLE);
+        wait(2*CLOCK_CYCLE);
+        printState();
         io_start = false;
         io_memDump = false;
+        wait(dumpFinished);
+        printState();
+
+        io_colCount = 1;
     }
 
     bool checkMemoryContents()
@@ -175,6 +214,7 @@ public:
     sc_in_clk clk;
     sc_signal<bool>	reset;
 
+
     sc_signal<bool>	io_start;
     sc_signal<bool>	io_memFill;
     sc_signal<bool>	io_memDump;
@@ -190,6 +230,7 @@ public:
     sc_signal<bool>	io_portB_dataIn;
     sc_signal<bool>	io_portB_writeEn;
     sc_signal<bool>	io_portB_dataOut;
+    sc_signal<uint32_t>	io_state;
     sc_signal<uint32_t>	io_portA_addr;
     sc_signal<uint32_t>	io_portB_addr;
     sc_signal<uint32_t>	io_colCount;
@@ -203,7 +244,8 @@ public:
     VFrontendController uut;
 
     unsigned int m_memory[MEM_WORD_COUNT];
-    sc_event fillFinished, startDumpTest;
+    sc_event startFill, startDump;
+    sc_event fillFinished, dumpFinished;
 
     sc_trace_file* Tf;
 
@@ -241,7 +283,7 @@ public:
             unsigned int addr = io_portA_addr;
             bool writeEn = io_portA_writeEn;
             unsigned int dataIn = io_portA_dataIn;
-            // cout << "portA addr " << addr << " val " << m_memory[addr] <<  " at " << NOW << endl;
+            //cout << "portA addr " << addr << " val " << m_memory[addr] <<  " at " << NOW << endl;
 
             io_portA_dataOut = m_memory[addr];
 
