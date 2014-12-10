@@ -49,6 +49,9 @@ public:
     sc_signal<uint32_t>	io_vectorMemDataOut_bits;
     sc_signal<uint32_t>	io_state;
 
+    sc_signal<uint32_t>	inpVecPtr;
+    sc_signal<uint32_t>	resVecPtr;
+
 
     sc_fifo<uint32_t> memIn, memOut, rowInd, colLen;
     InputFIFOAdapter<uint32_t> memInAdp;
@@ -63,8 +66,6 @@ public:
     sc_trace_file* Tf;
 
     BFSMemory bfsMemory;
-
-    unsigned int resVecPtr, inpVecPtr;
 
     FrontendTester(sc_module_name nm) :
         sc_module(nm),
@@ -94,6 +95,9 @@ public:
         uut.io_portB_addr(io_portB_addr);
         uut.io_portA_dataIn(io_portA_dataIn);
         uut.io_portA_dataOut(io_portA_dataOut);
+
+        uut.io_inputVecOffset(inpVecPtr);
+        uut.io_outputVecOffset(resVecPtr);
 
         bfsMemory.clk(clk);
         bfsMemory.portA_addr(io_portA_addr);
@@ -202,6 +206,8 @@ public:
         cout << "Loaded matrix " << matrixName.toStdString() << endl;
         cout << "Vertex count = " << matrix.rowCount() << endl;
         cout << "Edge count = " << matrix.nzCount() << endl;
+        cout << "Input vector pointer = " << inpVecPtr << endl;
+        cout << "Result vector pointer = " << resVecPtr << endl;
 
         sc_assert(io_state == 0);   // make sure we are in idle
 
@@ -217,9 +223,6 @@ public:
         QList<CSCPtr> colLenData = matrix.getColLengths();
         QList<CSCPtr> rowIndData = matrix.getRowIndices();
 
-        // *32 due to bit addressing in y
-        unsigned int yOffset = resVecPtr * 32;
-
         while (!colLenData.empty() || !rowIndData.empty())
         {
             if(!colLenData.empty())
@@ -231,8 +234,8 @@ public:
             if(!rowIndData.empty())
             {
 
-                unsigned int y = yOffset + rowIndData.takeFirst();
-                cout << "yind: " << y << endl;
+                unsigned int y = rowIndData.takeFirst();
+                //cout << "yind: " << y << endl;
                 rowInd.write(y);
             }
         }

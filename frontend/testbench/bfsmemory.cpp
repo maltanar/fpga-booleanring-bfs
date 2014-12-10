@@ -1,5 +1,8 @@
 #include "bfsmemory.h"
 
+
+#define DEBUG_PORTB_WRITES
+
 BFSMemory::BFSMemory(sc_module_name name)
 {
     SC_CTHREAD(memoryPortA, clk.pos());
@@ -68,11 +71,11 @@ void BFSMemory::memoryPortB()
         {
 
             unsigned int ldWord = m_memory[addr >> 5];
-            /*
+#ifdef DEBUG_PORTB_WRITES
             cout << "portB write addr = " << addr << " data = " << dataIn << " at " << sc_time_stamp() << endl;
             cout << "ldWord addr = " << (addr >> 5) << " value = " << ldWord << endl;
             cout << "ldWord desired bit index = " << (addr & 0x1F) << endl;
-            */
+#endif
             if(dataIn)
                 ldWord = ldWord | (1 << (addr & 0x1F));
             else

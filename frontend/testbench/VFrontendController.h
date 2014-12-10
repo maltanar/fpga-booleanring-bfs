@@ -45,6 +45,8 @@ SC_MODULE(VFrontendController) {
     sc_out<uint32_t>	io_portB_addr;
     sc_out<uint32_t>	io_state;
     sc_in<uint32_t>	io_colCount;
+    sc_in<uint32_t>	io_inputVecOffset;
+    sc_in<uint32_t>	io_outputVecOffset;
     sc_in<uint32_t>	io_colLengths_bits;
     sc_in<uint32_t>	io_rowIndices_bits;
     sc_in<uint32_t>	io_vectorMemDataIn_bits;
@@ -55,15 +57,15 @@ SC_MODULE(VFrontendController) {
     // LOCAL SIGNALS
     // Internals; generally not touched by application code
     VL_SIG8(v__DOT__regState,2,0);
-    VL_SIG8(v__DOT__T21,0,0);
-    VL_SIG8(v__DOT__T39,0,0);
-    VL_SIG8(v__DOT__T43,0,0);
-    VL_SIG8(v__DOT__T46,0,0);
-    VL_SIG8(v__DOT__T49,0,0);
-    VL_SIG8(v__DOT__T57,0,0);
-    //char	__VpadToAlign119[1];
+    VL_SIG8(v__DOT__T22,0,0);
+    VL_SIG8(v__DOT__T40,0,0);
+    VL_SIG8(v__DOT__T44,0,0);
+    VL_SIG8(v__DOT__T47,0,0);
+    VL_SIG8(v__DOT__T50,0,0);
+    VL_SIG8(v__DOT__T58,0,0);
+    //char	__VpadToAlign127[1];
     VL_SIG16(v__DOT__regXIndex,14,0);
-    //char	__VpadToAlign122[2];
+    //char	__VpadToAlign130[2];
     VL_SIG(v__DOT__regColCount,31,0);
     VL_SIG(v__DOT__regCurrentColLen,31,0);
     
@@ -79,16 +81,18 @@ SC_MODULE(VFrontendController) {
     VL_SIG8(__Vcellinp__v__io_start,0,0);
     VL_SIG8(__Vcellinp__v__reset,0,0);
     VL_SIG8(__Vclklast__TOP____Vcellinp__v__clk,0,0);
-    //char	__VpadToAlign146[2];
+    //char	__VpadToAlign154[2];
     VL_SIG(__Vcellinp__v__io_portA_dataOut,31,0);
     VL_SIG(__Vcellinp__v__io_vectorMemDataIn_bits,31,0);
     VL_SIG(__Vcellinp__v__io_rowIndices_bits,31,0);
     VL_SIG(__Vcellinp__v__io_colLengths_bits,31,0);
+    VL_SIG(__Vcellinp__v__io_outputVecOffset,31,0);
+    VL_SIG(__Vcellinp__v__io_inputVecOffset,31,0);
     VL_SIG(__Vcellinp__v__io_colCount,31,0);
     
     // INTERNAL VARIABLES
     // Internals; generally not touched by application code
-    //char	__VpadToAlign172[4];
+    //char	__VpadToAlign188[4];
     VFrontendController__Syms*	__VlSymsp;		// Symbol table
     
     // PARAMETERS
