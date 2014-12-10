@@ -18,6 +18,8 @@ class FrontendController() extends Module {
     val memFill = Bool(INPUT)
     val memDump = Bool(INPUT)
     val colCount = UInt(INPUT, 32)
+    val inputVecOffset = UInt(INPUT, 32)
+    val outputVecOffset = UInt(INPUT, 32)
     
     // SpMV data inputs
     val colLengths = Decoupled(UInt(width = 32)).flip
@@ -62,7 +64,7 @@ class FrontendController() extends Module {
   io.portA.dataIn := io.vectorMemDataIn.bits
   
   // memory port B
-  io.portB.addr := io.rowIndices.bits
+  io.portB.addr := io.rowIndices.bits + (io.outputVecOffset*UInt(32))
   io.portB.writeEn := Bool(false)
   io.portB.dataIn := UInt(1)
   
@@ -83,7 +85,7 @@ class FrontendController() extends Module {
       regColCount := io.colCount
       // zero out other register values
       regCurrentColLen := UInt(0)
-      regXIndex := UInt(0)
+      regXIndex := io.inputVecOffset*UInt(32)
       
       when ( io.start )
       {
