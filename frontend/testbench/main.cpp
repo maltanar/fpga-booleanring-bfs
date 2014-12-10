@@ -5,11 +5,12 @@
 #include "InputFIFOAdapter.h"
 #include "OutputFIFOAdapter.h"
 
+#include "bfsmemory.h"
 #include "CSCGraph.h"
 
 #define CLOCK_CYCLE sc_time(1, SC_NS)
 #define NOW sc_time_stamp()
-#define MEM_WORD_COUNT      1024
+
 
 
 class FrontendTester : public sc_module
@@ -37,16 +38,17 @@ public:
     sc_signal<bool>	io_portB_dataIn;
     sc_signal<bool>	io_portB_writeEn;
     sc_signal<bool>	io_portB_dataOut;
-    sc_signal<uint32_t>	io_state;
     sc_signal<uint32_t>	io_portA_addr;
     sc_signal<uint32_t>	io_portB_addr;
+    sc_signal<uint32_t>	io_portA_dataIn;
+    sc_signal<uint32_t>	io_portA_dataOut;
     sc_signal<uint32_t>	io_colCount;
     sc_signal<uint32_t>	io_colLengths_bits;
     sc_signal<uint32_t>	io_rowIndices_bits;
     sc_signal<uint32_t>	io_vectorMemDataIn_bits;
     sc_signal<uint32_t>	io_vectorMemDataOut_bits;
-    sc_signal<uint32_t>	io_portA_dataIn;
-    sc_signal<uint32_t>	io_portA_dataOut;
+    sc_signal<uint32_t>	io_state;
+
 
     sc_fifo<uint32_t> memIn, memOut, rowInd, colLen;
     InputFIFOAdapter<uint32_t> memInAdp;
@@ -55,11 +57,14 @@ public:
 
     VFrontendController uut;
 
-    unsigned int m_memory[MEM_WORD_COUNT];
     sc_event startFill, startDump;
     sc_event fillFinished, dumpFinished;
 
     sc_trace_file* Tf;
+
+    BFSMemory bfsMemory;
+
+    unsigned int resVecPtr, inpVecPtr;
 
     FrontendTester(sc_module_name nm) :
         sc_module(nm),
@@ -67,8 +72,12 @@ public:
         memInAdp("inadp"),
         memOutAdp("outadp"),
         rowIndAdp("riadp"),
-        colLenAdp("cladp")
+        colLenAdp("cladp"),
+        bfsMemory("mem")
     {
+        inpVecPtr = 0;
+        resVecPtr = MEM_WORD_COUNT / 2;
+
         uut.clk(clk);
         uut.reset(reset);
         uut.io_start(io_start);
@@ -85,6 +94,17 @@ public:
         uut.io_portB_addr(io_portB_addr);
         uut.io_portA_dataIn(io_portA_dataIn);
         uut.io_portA_dataOut(io_portA_dataOut);
+
+        bfsMemory.clk(clk);
+        bfsMemory.portA_addr(io_portA_addr);
+        bfsMemory.portA_dataIn(io_portA_dataIn);
+        bfsMemory.portA_dataOut(io_portA_dataOut);
+        bfsMemory.portA_writeEn(io_portA_writeEn);
+
+        bfsMemory.portB_addr(io_portB_addr);
+        bfsMemory.portB_dataIn(io_portB_dataIn);
+        bfsMemory.portB_dataOut(io_portB_dataOut);
+        bfsMemory.portB_writeEn(io_portB_writeEn);
 
 
         // wrap vector memory in FIFO
@@ -111,8 +131,7 @@ public:
         rowIndAdp.bindSignalInterface(uut.io_rowIndices_valid, uut.io_rowIndices_ready,
                                       uut.io_rowIndices_bits);
 
-        SC_CTHREAD(memoryPortA, clk.pos());
-        SC_CTHREAD(memoryPortB, clk.pos());
+
 
         SC_THREAD(runFrontendTests);
         sensitive << clk.pos();
@@ -198,20 +217,20 @@ public:
         QList<CSCPtr> colLenData = matrix.getColLengths();
         QList<CSCPtr> rowIndData = matrix.getRowIndices();
 
-        // "address offset" for result vector
-        // TODO this should be supported in hardware
-        unsigned int yOffset = 64;
+        // *32 due to bit addressing in y
+        unsigned int yOffset = resVecPtr * 32;
 
         while (!colLenData.empty() || !rowIndData.empty())
         {
             if(!colLenData.empty())
             {
                 unsigned int len = colLenData.takeFirst();
-                cout << "collen: " << len << endl;
+                // cout << "collen: " << len << endl;
                 colLen.write(len);
             }
             if(!rowIndData.empty())
             {
+
                 unsigned int y = yOffset + rowIndData.takeFirst();
                 cout << "yind: " << y << endl;
                 rowInd.write(y);
@@ -228,13 +247,34 @@ public:
         cout << "Row index transfers = " << rowIndAdp.getTransferCount() << endl;
     }
 
-    void printMemBlockNonzeroes(unsigned int * data, unsigned int count)
+    void printInputVectorNonzeroes()
     {
-        cout << "Nonzero locations:" << endl;
-        for(unsigned int i = 0; i < count; i++)
+        cout << "Nonzeroes in input vector: " << endl;
+        printMemBlockNonzeroes(bfsMemory.readAll(), MEM_WORD_COUNT/2, inpVecPtr);
+    }
+
+    void printResultVectorNonzeroes()
+    {
+        cout << "Nonzeroes in result vector: " << endl;
+        printMemBlockNonzeroes(bfsMemory.readAll(), MEM_WORD_COUNT/2, resVecPtr);
+    }
+
+    void printMemBlockNonzeroes(unsigned int * data, unsigned int wordCount, unsigned int wordStart)
+    {
+        cout << "print start = " << wordStart << " count = " << wordCount << endl;
+        for(unsigned int i = wordStart; i < wordStart+wordCount; i++)
         {
             if(data[i] != 0)
-                cout << "[" << i << "] = " << data[i] << endl;
+            {
+                unsigned int wd = data[i];
+                for(unsigned int bit = 0; bit < 32; bit++)
+                {
+                    if(wd & 0x1)
+                        cout << "[" << i*32+bit - wordStart*32 << "] " << endl;
+                    wd = wd >> 1;
+                }
+
+            }
         }
     }
 
@@ -267,7 +307,7 @@ public:
         cout << "memfill completed" << endl;
         cout << "memInAdp transfer count = "  << memInAdp.getTransferCount() << endl;
 
-        if(!checkMemoryContents(initData, MEM_WORD_COUNT))
+        if(!bfsMemory.checkMemoryContents(initData, MEM_WORD_COUNT))
         {
             cout << "memory contents incorrect after memfill!" << endl;
             return;
@@ -289,36 +329,18 @@ public:
         cout << "memdump completed, memcmp result = " << res << endl;
         cout << "memOutAdp transfer count = "  << memOutAdp.getTransferCount() << endl;
 
-        printMemBlockNonzeroes(buf, MEM_WORD_COUNT);
+        printMemBlockNonzeroes(buf, MEM_WORD_COUNT,0);
 
         pushMatrixData("Pajek-GD01_b");
 
         sc_assert(io_state == 0);
 
-        io_memDump = true;
-        io_start = true;
-        wait(1);
-        io_start = false;
-        io_memDump = false;
-        dumpMem(buf, MEM_WORD_COUNT);
-        printMemBlockNonzeroes(buf, MEM_WORD_COUNT);
+        printInputVectorNonzeroes();
+        printResultVectorNonzeroes();
+
+        sc_stop();
 
         return;
-    }
-
-    bool checkMemoryContents(unsigned int * cmp, unsigned int wordCount)
-    {
-        bool result = true;
-
-        for(int i = 0; i < wordCount; i++)
-            if(m_memory[i] != cmp[i])
-            {
-                cout << "incorrect mem contents at word addr " << i << endl;
-                cout << "expected " << cmp[i] << " found " << m_memory[i] << endl;
-                result=false;
-            }
-
-        return result;
     }
 
     void init_trace()
@@ -352,65 +374,6 @@ public:
         return;
 
         sc_close_vcd_trace_file(Tf);
-    }
-
-    void memoryPortA()
-    {
-        io_portA_dataOut = 0;
-
-        while(1)
-        {
-            wait(1);
-
-            unsigned int addr = io_portA_addr;
-            bool writeEn = io_portA_writeEn;
-            unsigned int dataIn = io_portA_dataIn;
-            //cout << "portA addr " << addr << " val " << m_memory[addr] <<  " at " << NOW << endl;
-
-            io_portA_dataOut = m_memory[addr];
-
-            if(writeEn)
-            {
-                m_memory[addr] = dataIn;
-                //cout << "portA write addr = " << addr << " data = " << dataIn << " at " << NOW << endl;
-            }
-        }
-
-    }
-
-    void memoryPortB()
-    {
-        io_portB_dataOut = false;
-
-        while(1)
-        {
-            wait(1);
-
-            unsigned int addr = io_portB_addr;
-            bool writeEn = io_portB_writeEn;
-            bool dataIn = io_portB_dataIn;
-
-            io_portB_dataOut = (bool)((m_memory[addr >> 5] >> (addr & 0x1F)) & 0x1 == 0x1);
-
-            if(writeEn)
-            {
-
-                unsigned int ldWord = m_memory[addr >> 5];
-
-                cout << "portB write addr = " << addr << " data = " << dataIn << " at " << NOW << endl;
-                cout << "ldWord addr = " << (addr >> 5) << " value = " << ldWord << endl;
-                cout << "ldWord desired bit index = " << (addr & 0x1F) << endl;
-
-                if(dataIn)
-                    ldWord = ldWord | (1 << (addr & 0x1F));
-                else
-                    ldWord = ldWord & ~(1 << (addr & 0x1F));
-                cout << "ldWord new value = " << ldWord << endl;
-
-                m_memory[addr >> 5] = ldWord;
-            }
-        }
-
     }
 
 };

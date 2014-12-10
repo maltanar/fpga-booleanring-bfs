@@ -8,7 +8,8 @@ SOURCES += main.cpp \
     verilated.cpp \
     VFrontendController__Syms.cpp \
     VFrontendController.cpp \
-    CSCGraph.cpp
+    CSCGraph.cpp \
+    bfsmemory.cpp
 
 SYSTEMC_ROOT = /home/maltanar/systemc
 SYSTEMC_ARCH = linux64
@@ -26,5 +27,6 @@ HEADERS += \
     VFrontendController.h \
     InputFIFOAdapter.h \
     OutputFIFOAdapter.h \
-    CSCGraph.h
+    CSCGraph.h \
+    bfsmemory.h
 
