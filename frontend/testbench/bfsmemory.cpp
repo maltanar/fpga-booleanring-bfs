@@ -68,17 +68,17 @@ void BFSMemory::memoryPortB()
         {
 
             unsigned int ldWord = m_memory[addr >> 5];
-
+            /*
             cout << "portB write addr = " << addr << " data = " << dataIn << " at " << sc_time_stamp() << endl;
             cout << "ldWord addr = " << (addr >> 5) << " value = " << ldWord << endl;
             cout << "ldWord desired bit index = " << (addr & 0x1F) << endl;
-
+            */
             if(dataIn)
                 ldWord = ldWord | (1 << (addr & 0x1F));
             else
                 ldWord = ldWord & ~(1 << (addr & 0x1F));
 
-            cout << "ldWord new value = " << ldWord << endl;
+            //cout << "ldWord new value = " << ldWord << endl;
 
             m_memory[addr >> 5] = ldWord;
         }

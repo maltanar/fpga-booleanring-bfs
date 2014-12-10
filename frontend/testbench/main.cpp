@@ -261,7 +261,6 @@ public:
 
     void printMemBlockNonzeroes(unsigned int * data, unsigned int wordCount, unsigned int wordStart)
     {
-        cout << "print start = " << wordStart << " count = " << wordCount << endl;
         for(unsigned int i = wordStart; i < wordStart+wordCount; i++)
         {
             if(data[i] != 0)
@@ -273,7 +272,6 @@ public:
                         cout << "[" << i*32+bit - wordStart*32 << "] " << endl;
                     wd = wd >> 1;
                 }
-
             }
         }
     }
@@ -331,12 +329,25 @@ public:
 
         printMemBlockNonzeroes(buf, MEM_WORD_COUNT,0);
 
-        pushMatrixData("Pajek-GD01_b");
+        unsigned int cont = 1;
 
-        sc_assert(io_state == 0);
+        while(cont)
+        {
+            sc_assert(io_state == 0);
 
-        printInputVectorNonzeroes();
-        printResultVectorNonzeroes();
+            pushMatrixData("Pajek-GD01_b");
+
+            sc_assert(io_state == 0);
+
+            printInputVectorNonzeroes();
+            printResultVectorNonzeroes();
+
+            inpVecPtr = (inpVecPtr == 0 ? MEM_WORD_COUNT/2 : 0);
+            resVecPtr = (resVecPtr == 0 ? MEM_WORD_COUNT/2 : 0);
+
+            cout << "Enter 0 to break out, 1  to continue: ";
+            cin >> cont;
+        }
 
         sc_stop();
 
