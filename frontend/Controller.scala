@@ -38,6 +38,10 @@ class FrontendController() extends Module {
   // total NZs processed so far
   val regProcessedNZCount = Reg(init = UInt(0, 32))
   
+  // state machine definitions
+  val sIdle :: sReadColLen :: sProcessColumn :: Nil = Enum(UInt(), 3)
+  val regState = Reg(init = UInt(sIdle))
+  
   // default outputs
   // input queues
   io.colLengths.ready := Bool(false)
@@ -53,11 +57,6 @@ class FrontendController() extends Module {
   io.state := regState
   io.processedColCount := io.colCount - regColCount
   io.processedNZCount := regProcessedNZCount
-  
-  
-  // state machine definitions
-  val sIdle :: sReadColLen :: sProcessColumn :: Nil = Enum(UInt(), 3)
-  val regState = Reg(init = UInt(sIdle))
   
   // FSM for control
   switch ( regState ) {
