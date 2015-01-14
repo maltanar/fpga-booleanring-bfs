@@ -113,6 +113,9 @@ class FrontendController() extends Module {
         
         // decrement elements left in current col
         regCurrentColLen := regCurrentColLen - UInt(1)
+        
+        // increment NZ counter
+        regProcessedNZCount := regProcessedNZCount + UInt(1)
       }
     }
   }
