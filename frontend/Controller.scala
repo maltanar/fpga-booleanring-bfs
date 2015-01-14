@@ -6,128 +6,69 @@ import Node._
 
 class FrontendController() extends Module {
   // TODO get these from global config
-  val memDepthWords = 1024
-  val addrBitsA = log2Up(memDepthWords)
-  val addrBitsB = log2Up(memDepthWords*32)
+  val memDepth = 1024
+  val addrBits = log2Up(memDepth)
   
   val io = new Bundle {
   
-    // control and status interface
-    val state = UInt(OUTPUT, 32)
+    // control interface
     val start = Bool(INPUT)
-    val memFill = Bool(INPUT)
-    val memDump = Bool(INPUT)
     val colCount = UInt(INPUT, 32)
-    val inputVecOffset = UInt(INPUT, 32)
-    val outputVecOffset = UInt(INPUT, 32)
+    
+    // status interface
+    val state = UInt(OUTPUT, 32)
+    val processedColCount = UInt(OUTPUT, 32)
+    val processedNZCount = UInt(OUTPUT, 32)
     
     // SpMV data inputs
     val colLengths = Decoupled(UInt(width = 32)).flip
     val rowIndices = Decoupled(UInt(width = 32)).flip
+    val dvValues = Decoupled(UInt(width = 1)).flip
     
-    // i/o for intializing vector mem contents
-    val vectorMemDataIn = Decoupled(UInt(width = 32)).flip
-    val vectorMemDataOut = Decoupled(UInt(width = 32))
-    
-    // interface towards vector memory
-    val portA = new MemReadWritePort(32, addrBitsA).flip
-    val portB = new MemReadWritePort(1, addrBitsB).flip    
+    // interface towards result vector memory
+    val resMemPort = new MemReadWritePort(1, addrBits).flip
   }
   
-  // internal state registers
+  // internal status registers
   // number of columns in SpM (during execution, num of
   // columns left to process)
   val regColCount = Reg(init = UInt(0, 32))
   // elements left in current column
   val regCurrentColLen = Reg(init = UInt(0, 32))
-  
-  // current X (input) vector index:
-  val regXIndex = Reg(init = UInt(0, addrBitsB))
-  // - upper bits act as portA read address
-  val xReadAddr = regXIndex(addrBitsB-1, 5)
-  // - lower bits are used as input to a decoder that selects the
-  //   appropriate bit from the 32-bit word
-  // TODO if we always treat X as dense, consider shifting instead
-  val xBitSelect = regXIndex(4, 0)
- 
-  val currentXWord = io.portA.dataOut
-  val currentXValue = currentXWord(xBitSelect)
+  // total NZs processed so far
+  val regProcessedNZCount = Reg(init = UInt(0, 32))
   
   // default outputs
   // input queues
   io.colLengths.ready := Bool(false)
   io.rowIndices.ready := Bool(false)
+  io.dvValues.ready := Bool(false)
   
-  // memory port A
-  io.portA.addr := xReadAddr
-  io.portA.writeEn := Bool(false)
-  io.portA.dataIn := io.vectorMemDataIn.bits
+  // result vector memory port
+  io.resMemPort.addr := io.rowIndices.bits
+  io.resMemPort.writeEn := Bool(false)
+  io.resMemPort.dataIn := UInt(1)
   
-  // memory port B
-  io.portB.addr := io.rowIndices.bits + (io.outputVecOffset*UInt(32))
-  io.portB.writeEn := Bool(false)
-  io.portB.dataIn := UInt(1)
+  // status outputs
+  io.state := regState
+  io.processedColCount := io.colCount - regColCount
+  io.processedNZCount := regProcessedNZCount
   
-  // mem fill/dump queues
-  io.vectorMemDataIn.ready := Bool(false)
-  io.vectorMemDataOut.bits := currentXWord
-  io.vectorMemDataOut.valid := Bool(false)
   
   // state machine definitions
-  val sIdle :: sMemFill :: sMemDumpWait :: sMemDumpLoad :: sReadColLen :: sProcessColumn :: Nil = Enum(UInt(), 6)
+  val sIdle :: sReadColLen :: sProcessColumn :: Nil = Enum(UInt(), 3)
   val regState = Reg(init = UInt(sIdle))
   
-  io.state := regState
-  
+  // FSM for control
   switch ( regState ) {
     is ( sIdle ) {
       // save colCount from input
       regColCount := io.colCount
       // zero out other register values
       regCurrentColLen := UInt(0)
-      regXIndex := io.inputVecOffset*UInt(32)
+      regProcessedNZCount := UInt(0)
       
-      when ( io.start )
-      {
-        when ( io.memDump ) { regState := sMemDumpWait }
-        .elsewhen ( io.memFill ) { regState := sMemFill}
-        .otherwise { regState := sReadColLen}
-      }
-    }
-    
-    is ( sMemFill ) {
-      // init contents of vector storage from vectorMemDataIn
-      io.portA.writeEn := io.vectorMemDataIn.valid
-      io.vectorMemDataIn.ready := Bool(true)
-      
-      when ( io.vectorMemDataIn.valid ) {
-        // increment address with each valid word
-        // add 32 since 1 word = 32 bits 
-        // (word address is derived from upper bits of regXIndex)
-        regXIndex := regXIndex + UInt(32)
-        // go back to idle when we have filled the whole memory
-        when ( xReadAddr === UInt(memDepthWords-1) ) { regState := sIdle}
-      }
-    }
-    
-    is ( sMemDumpWait ) {
-      // dump contents of vector storage onto vectorMemDataOut
-      // data already loaded from BRAM, set valid high
-      io.vectorMemDataOut.valid := Bool(true)
-      
-      when ( io.vectorMemDataOut.ready ) {
-        regState := sMemDumpLoad
-        // increment address and load next word for mem dump
-        // add 32 since 1 word = 32 bits 
-        regXIndex := regXIndex + UInt(32)
-        when ( xReadAddr === UInt(memDepthWords-1) ) { regState := sIdle }
-      }
-    }
-    
-    is ( sMemDumpLoad ) {
-      // dummy state to delay the valid generation after receiving
-      // ready
-      regState := sMemDumpWait
+      when ( io.start ) { regState := sReadColLen }
     }
     
     is ( sReadColLen ) {
@@ -157,19 +98,18 @@ class FrontendController() extends Module {
       when ( endOfColumn )
       {
         // end of column also corresponds to new x
-        // (increment j and get x[j] updated for next iter)
-        regXIndex := regXIndex + UInt(1)
+        io.dvValues.ready := Bool(true)
         // read in a new column length
         regState := sReadColLen
       }
-      .elsewhen ( io.rowIndices.valid ) {
+      .elsewhen ( io.rowIndices.valid && io.dvValues.valid ) {
         // this is the heart of the SpMV operation for BFS:
         // y[i] = x[j] | y[i]
         // - i is provided by the rowIndices FIFO
         // - j is generated by regXIndex
         // instead of computing a new result every time,
         // we can use x[j] as write enable for writing a constant 1
-        io.portB.writeEn := currentXValue
+        io.resMemPort.writeEn := io.dvValues.bits
         
         // decrement elements left in current col
         regCurrentColLen := regCurrentColLen - UInt(1)
