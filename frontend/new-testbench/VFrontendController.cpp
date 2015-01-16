@@ -160,7 +160,7 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
     __Vdly__v__DOT__regColCount = vlTOPp->v__DOT__regColCount;
     __Vdly__v__DOT__regCurrentColLen = vlTOPp->v__DOT__regCurrentColLen;
     __Vdly__v__DOT__regState = vlTOPp->v__DOT__regState;
-    // ALWAYS at FrontendController.v:158
+    // ALWAYS at FrontendController.v:154
     if (vlTOPp->__Vcellinp__v__reset) {
 	__Vdly__v__DOT__regProcessedNZCount = 0;
     } else {
@@ -173,7 +173,7 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
 	    }
 	}
     }
-    // ALWAYS at FrontendController.v:151
+    // ALWAYS at FrontendController.v:147
     if (vlTOPp->__Vcellinp__v__reset) {
 	__Vdly__v__DOT__regColCount = 0;
     } else {
@@ -186,7 +186,7 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
 	    }
 	}
     }
-    // ALWAYS at FrontendController.v:131
+    // ALWAYS at FrontendController.v:127
     if (vlTOPp->__Vcellinp__v__reset) {
 	__Vdly__v__DOT__regCurrentColLen = 0;
     } else {
@@ -203,7 +203,7 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
 	    }
 	}
     }
-    // ALWAYS at FrontendController.v:140
+    // ALWAYS at FrontendController.v:136
     if (vlTOPp->__Vcellinp__v__reset) {
 	__Vdly__v__DOT__regState = 0;
     } else {
@@ -231,10 +231,6 @@ void VFrontendController::_sequent__TOP__4(VFrontendController__Syms* __restrict
     vlTOPp->v__DOT__regState = __Vdly__v__DOT__regState;
     VL_ASSIGN_SII(32,vlTOPp->io_processedNZCount, vlTOPp->v__DOT__regProcessedNZCount);
     VL_ASSIGN_SII(32,vlTOPp->io_state, vlTOPp->v__DOT__regState);
-    VL_ASSIGN_SII(1,vlTOPp->io_rowIndices_ready, ((2 
-						   == (IData)(vlTOPp->v__DOT__regState)) 
-						  & (0 
-						     != vlTOPp->v__DOT__regCurrentColLen)));
     VL_ASSIGN_SII(1,vlTOPp->io_colLengths_ready, ((1 
 						   == (IData)(vlTOPp->v__DOT__regState)) 
 						  & (0 
@@ -270,10 +266,6 @@ void VFrontendController::_settle__TOP__6(VFrontendController__Syms* __restrict 
     VL_ASSIGN_ISI(1,vlTOPp->__Vcellinp__v__reset, vlTOPp->reset);
     VL_ASSIGN_SII(32,vlTOPp->io_processedNZCount, vlTOPp->v__DOT__regProcessedNZCount);
     VL_ASSIGN_SII(32,vlTOPp->io_state, vlTOPp->v__DOT__regState);
-    VL_ASSIGN_SII(1,vlTOPp->io_rowIndices_ready, ((2 
-						   == (IData)(vlTOPp->v__DOT__regState)) 
-						  & (0 
-						     != vlTOPp->v__DOT__regCurrentColLen)));
     VL_ASSIGN_SII(1,vlTOPp->io_colLengths_ready, ((1 
 						   == (IData)(vlTOPp->v__DOT__regState)) 
 						  & (0 
@@ -291,6 +283,7 @@ void VFrontendController::_settle__TOP__6(VFrontendController__Syms* __restrict 
 		  (vlTOPp->__Vcellinp__v__io_colCount 
 		   - vlTOPp->v__DOT__regColCount));
     VL_ASSIGN_SII(1,vlTOPp->io_dvValues_ready, vlTOPp->v__DOT__T21);
+    VL_ASSIGN_SII(1,vlTOPp->io_rowIndices_ready, vlTOPp->v__DOT__T1);
     VL_ASSIGN_SII(1,vlTOPp->io_resMemPort_writeEn, 
 		  ((IData)(vlTOPp->v__DOT__T1) & (IData)(vlTOPp->__Vcellinp__v__io_dvValues_bits)));
 }
@@ -302,6 +295,7 @@ void VFrontendController::_combo__TOP__7(VFrontendController__Syms* __restrict v
     VL_ASSIGN_SII(32,vlTOPp->io_processedColCount, 
 		  (vlTOPp->__Vcellinp__v__io_colCount 
 		   - vlTOPp->v__DOT__regColCount));
+    VL_ASSIGN_SII(1,vlTOPp->io_rowIndices_ready, vlTOPp->v__DOT__T1);
     VL_ASSIGN_SII(1,vlTOPp->io_resMemPort_writeEn, 
 		  ((IData)(vlTOPp->v__DOT__T1) & (IData)(vlTOPp->__Vcellinp__v__io_dvValues_bits)));
 }

@@ -24,6 +24,26 @@ public:
 
         SC_THREAD(fifoInputAdapt);
         sensitive << clk.pos();
+
+        m_reset = false;
+    }
+
+    void resetCounters()
+    {
+      m_transferCount = 0;
+    }
+
+    void resetContent()
+    {
+      // read all content from the attached FIFO IF
+      while(fifoInput.num_available())
+        fifoInput.read();
+
+
+      m_reset = true;
+      for(int i = 0; i < 10; i++)
+        wait(clk.posedge_event());
+      m_reset = false;
     }
 
     void bindSignalInterface(sc_in<bool> & valid, sc_out<bool> & ready, sc_in<T> & data)
@@ -65,6 +85,9 @@ public:
 
                 do {
                     wait(1);
+                    // include reset for enabling FIFO flush
+                    if(m_reset)
+                      break;
                 } while(m_ready != true);
 
             } else
@@ -76,6 +99,8 @@ protected:
     sc_signal<bool> m_valid;
     sc_signal<bool> m_ready;
     sc_signal<T> m_data;
+
+    bool m_reset;
 
     unsigned long int m_transferCount;
 

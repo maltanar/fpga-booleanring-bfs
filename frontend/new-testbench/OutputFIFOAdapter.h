@@ -26,6 +26,11 @@ public:
         SC_CTHREAD(fifoOutputAdapt, clk.pos());
     }
 
+    void resetCounters()
+    {
+      m_transferCount = 0;
+    }
+
     void bindSignalInterface(sc_out<bool> & valid, sc_in<bool> & ready, sc_out<T> & data)
     {
         valid.bind(m_valid);
