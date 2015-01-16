@@ -91,8 +91,6 @@ class FrontendController() extends Module {
     is ( sProcessColumn ) {
       // read in new column indices + process
       val endOfColumn = ( regCurrentColLen === UInt(0) )
-      // don't generate ready if there are no elements left
-      io.rowIndices.ready := !endOfColumn
       
       when ( endOfColumn )
       {
@@ -109,12 +107,12 @@ class FrontendController() extends Module {
         // instead of computing a new result every time,
         // we can use x[j] as write enable for writing a constant 1
         io.resMemPort.writeEn := io.dvValues.bits
-        
         // decrement elements left in current col
         regCurrentColLen := regCurrentColLen - UInt(1)
-        
         // increment NZ counter
         regProcessedNZCount := regProcessedNZCount + UInt(1)
+        // get next row index
+        io.rowIndices.ready := Bool(true)
       }
     }
   }
