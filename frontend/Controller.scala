@@ -92,7 +92,7 @@ class FrontendController() extends Module {
       // read in new column indices + process
       val endOfColumn = ( regCurrentColLen === UInt(0) )
       
-      when ( endOfColumn )
+      when ( endOfColumn && io.dvValues.valid )
       {
         // end of column also corresponds to new x
         io.dvValues.ready := Bool(true)
