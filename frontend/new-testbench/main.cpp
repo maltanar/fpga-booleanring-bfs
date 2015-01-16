@@ -57,6 +57,7 @@ public:
     SC_THREAD(run_tests);
 
     SC_THREAD(handleMemWrites);
+    //SC_THREAD(monitorSignals);
   }
   
   // initialize the driving signals for the uut inputs
@@ -78,6 +79,21 @@ public:
     sig_reset = false;
 
   }
+
+  void monitorSignals()
+  {
+    while(1)
+    {
+      cout << "==========================================================================================" << endl;
+      cout << "Time: " << sc_time_stamp() << endl;
+      cout << "State: " << sig_io_state << endl;
+      cout << "Column length FIFO signals (r/v/d): " << adp_io_colLengths.m_ready << " " << adp_io_colLengths.m_valid << " " << adp_io_colLengths.m_data << endl;
+      cout << "DV value FIFO signals (r/v/d): " << adp_io_dvValues.m_ready << " " << adp_io_dvValues.m_valid << " " << adp_io_dvValues.m_data << endl;
+      cout << "Rowind FIFO signals (r/v/d): " << adp_io_rowIndices.m_ready << " " << adp_io_rowIndices.m_valid << " " << adp_io_rowIndices.m_data << endl;
+      cout << "Result memory signals (addr/din/wen): " << sig_io_resMemPort_addr << " " << sig_io_resMemPort_dataIn << " " << sig_io_resMemPort_writeEn << endl;
+      waitClockCycles(1);
+    }
+  }
   
   void run_tests()
   {
@@ -87,8 +103,8 @@ public:
     cout << "Reset completed at " << sc_time_stamp() << ", starting tests..." << endl;
 
 
-    testEmptyColStart();
-    testSingleColumn();
+    //testEmptyColStart();
+    //testSingleColumn();
     testZeroLenColumn();
     sc_stop();
   }
@@ -139,6 +155,7 @@ public:
     waitClockCycles(10);
     // nothing should happen since start was not given
     sc_assert(sig_io_state == 0);
+    cout << "Test starting at " << sc_time_stamp() << endl;
     sig_io_start = true;
     waitClockCycles(1);
     sig_io_start = false;
@@ -165,7 +182,7 @@ public:
     sc_assert(sig_io_state == 0);
 
     // check FIFO transfer counts
-    getFIFOTransferCounts();
+    printStats();
     sc_assert(adp_io_colLengths.getTransferCount() == 1);
     sc_assert(adp_io_dvValues.getTransferCount() == 1);
     sc_assert(adp_io_rowIndices.getTransferCount() == 5);
@@ -173,11 +190,12 @@ public:
     // check memory
     sc_assert(m_writeCount == 5);
 
-    cout << "Test successful" << endl;
+    cout << "Test successfully completed at " << sc_time_stamp() << endl;
   }
 
   void testZeroLenColumn()
   {
+    sc_time timeStart, timeEnd;
     sc_assert(sig_io_state == 0);
     sc_assert(sig_io_start == false);
     adp_io_colLengths.resetCounters();
@@ -187,48 +205,54 @@ public:
     // remove remaining elements from FIFOs
     emptyFIFOContents();
     cout << "********************************************" << endl;
-    cout << "Running test: 3 columns of lengths 3-0-3-4, last 3 with 0 dv" << endl;
+    cout << "Running test: 4 columns of lengths 3-0-3-4, last 3 with 0 dv" << endl;
 
     sig_io_colCount = 4;
     fifo_io_colLengths.write(3);
-    fifo_io_dvValues.write(1);
+    fifo_io_dvValues.write(true);
 
     fifo_io_colLengths.write(0);
-    fifo_io_dvValues.write(0);
+    fifo_io_dvValues.write(false);
 
     fifo_io_colLengths.write(3);
-    fifo_io_dvValues.write(0);
+    fifo_io_dvValues.write(false);
 
     fifo_io_colLengths.write(4);
-    fifo_io_dvValues.write(1);
+    fifo_io_dvValues.write(true);
 
 
     for(int i = 1; i <= 14; i++)
       fifo_io_rowIndices.write(11*i);
 
+    timeStart = sc_time_stamp();
+    cout << "Test starting at " << timeStart << endl;
     sig_io_start = true;
     waitClockCycles(1);
     sig_io_start = false;
     sc_assert(sig_io_state == 1);
-    // wait until everything is done
-    waitClockCycles(100);
-    getFIFOTransferCounts();
-    sc_assert(sig_io_state == 0);                             // back to idle
+    // wait until everything is done and we are back to idle
+    while(sig_io_state != 0)
+      waitClockCycles(1);
+
+    printStats();
     sc_assert(m_writeCount == 7);                             // should be a total of 7 writes from the dv 1 elements
     sc_assert(adp_io_colLengths.getTransferCount() == 4);     // 4 column lengths
     sc_assert(adp_io_dvValues.getTransferCount() == 4);       // 4 dv elements
     sc_assert(adp_io_rowIndices.getTransferCount() == 10);    // 10 rowinds popped (3 of which did not result in writes due to zero dv)
-    cout << "Test successful" << endl;
 
+    timeEnd = sc_time_stamp();
+    cout << "Test successfully completed at " << timeEnd << ": " << (timeEnd-timeStart)/CLOCK_CYCLE << " cycles" << endl;
   }
 
-  void getFIFOTransferCounts()
+  void printStats()
   {
     cout << "Col lengths FIFO transfers: " << adp_io_colLengths.getTransferCount() << endl;
     cout << "DV FIFO transfers: " << adp_io_dvValues.getTransferCount() << endl;
     cout << "Rowinds FIFO transfers: " << adp_io_rowIndices.getTransferCount() << endl;
     cout << "Available data counts: " << fifo_io_colLengths.num_available() <<" " << fifo_io_dvValues.num_available() << " " << fifo_io_rowIndices.num_available() << endl;
     cout << "Total memory writes: " << m_writeCount << endl;
+    cout << "Processed col count: " << sig_io_processedColCount << endl;
+    cout << "Processed NZ count: " << sig_io_processedNZCount << endl;
   }
   
   void waitClockCycles(int N)

@@ -48,9 +48,11 @@ SC_MODULE(VFrontendController) {
     // LOCAL SIGNALS
     // Internals; generally not touched by application code
     VL_SIG8(v__DOT__T1,0,0);
+    VL_SIG8(v__DOT__T5,0,0);
     VL_SIG8(v__DOT__regState,1,0);
-    VL_SIG8(v__DOT__T21,0,0);
     VL_SIG8(v__DOT__T22,0,0);
+    VL_SIG8(v__DOT__T23,0,0);
+    //char	__VpadToAlign89[3];
     VL_SIG(v__DOT__regCurrentColLen,31,0);
     VL_SIG(v__DOT__regColCount,31,0);
     VL_SIG(v__DOT__regProcessedNZCount,31,0);
@@ -71,6 +73,7 @@ SC_MODULE(VFrontendController) {
     
     // INTERNAL VARIABLES
     // Internals; generally not touched by application code
+    //char	__VpadToAlign132[4];
     VFrontendController__Syms*	__VlSymsp;		// Symbol table
     
     // PARAMETERS
@@ -107,10 +110,10 @@ SC_MODULE(VFrontendController) {
     static void	_eval_initial(VFrontendController__Syms* __restrict vlSymsp);
     static void	_eval_settle(VFrontendController__Syms* __restrict vlSymsp);
     static void	_sequent__TOP__4(VFrontendController__Syms* __restrict vlSymsp);
-    static void	_sequent__TOP__8(VFrontendController__Syms* __restrict vlSymsp);
     static void	_settle__TOP__1(VFrontendController__Syms* __restrict vlSymsp);
     static void	_settle__TOP__3(VFrontendController__Syms* __restrict vlSymsp);
     static void	_settle__TOP__6(VFrontendController__Syms* __restrict vlSymsp);
+    static void	_settle__TOP__8(VFrontendController__Syms* __restrict vlSymsp);
 } VL_ATTR_ALIGNED(128);
 
 #endif  /*guard*/

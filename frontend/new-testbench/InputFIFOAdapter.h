@@ -77,11 +77,16 @@ public:
         {
             m_valid = false;
 
+            // add delays here for testing the latency insensitivity of the
+            // target components
+            //wait(15);
+
             T data;
             if(fifoInput.nb_read(data))
             {
                 m_valid = true;
                 m_data = data;
+                //cout << "**************************************************FIFO " << this->name() << " read value " << data << endl;
 
                 do {
                     wait(1);
@@ -95,7 +100,7 @@ public:
         }
     }
 
-protected:
+public:
     sc_signal<bool> m_valid;
     sc_signal<bool> m_ready;
     sc_signal<T> m_data;
