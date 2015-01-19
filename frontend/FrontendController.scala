@@ -60,14 +60,15 @@ class FrontendController() extends Module {
   
   // FSM for control
   switch ( regState ) {
-    is ( sIdle ) {
-      // save colCount from input
-      regColCount := io.colCount
-      // zero out other register values
-      regCurrentColLen := UInt(0)
-      regProcessedNZCount := UInt(0)
-      
-      when ( io.start ) { regState := sReadColLen }
+    is ( sIdle ) {      
+      when ( io.start ) { 
+        regState := sReadColLen 
+        // save colCount from input
+        regColCount := io.colCount
+        // zero out other register values
+        regCurrentColLen := UInt(0)
+        regProcessedNZCount := UInt(0)
+      }
     }
     
     is ( sReadColLen ) {
