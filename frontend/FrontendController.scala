@@ -3,6 +3,7 @@ package BFSFrontEnd
 import Chisel._
 import Literal._
 import Node._
+import AXIStreamDefs._
 
 class FrontendController() extends Module {
   // TODO get these from global config
@@ -21,13 +22,18 @@ class FrontendController() extends Module {
     val processedNZCount = UInt(OUTPUT, 32)
     
     // SpMV data inputs
-    val colLengths = Decoupled(UInt(width = 32)).flip
-    val rowIndices = Decoupled(UInt(width = 32)).flip
-    val dvValues = Decoupled(UInt(width = 1)).flip
+    val colLengths = new AXIStreamSlaveIF(UInt(width = 32))
+    val rowIndices = new AXIStreamSlaveIF(UInt(width = 32))
+    val dvValues = new AXIStreamSlaveIF(UInt(width = 1))
     
     // interface towards result vector memory
     val resMemPort = new MemReadWritePort(1, addrBits).flip
   }
+  
+  // rename AXI stream interfaces to support Vivado type inference
+  io.colLengths.renameSignals("colLengths")
+  io.rowIndices.renameSignals("rowIndices")
+  io.dvValues.renameSignals("dvValues")
   
   // internal status registers
   // number of columns in SpM (during execution, num of
