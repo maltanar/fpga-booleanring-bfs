@@ -111,6 +111,7 @@ class RequestGenerator() extends Module {
         io.readAddr.valid := Bool(true)
         io.readAddr.bits.addr := regColLenPtr
         io.readAddr.bits.id := UInt(colLenReqID)
+        io.readAddr.bits.len := UInt(colLenBurstSize - 1)
         
         when ( io.readAddr.ready ) {
           // request accepted
@@ -129,6 +130,7 @@ class RequestGenerator() extends Module {
         io.readAddr.valid := Bool(true)
         io.readAddr.bits.addr := regRowIndPtr
         io.readAddr.bits.id := UInt(rowIndReqID)
+        io.readAddr.bits.len := UInt(rowIndBurstSize - 1)
         
         when ( io.readAddr.ready ) {
           regRowIndCount := regRowIndCount - UInt(rowIndPerBurst)
@@ -145,6 +147,7 @@ class RequestGenerator() extends Module {
         io.readAddr.valid := Bool(true)
         io.readAddr.bits.addr := regDVPtr
         io.readAddr.bits.id := UInt(dvReqID)
+        io.readAddr.bits.len := UInt(dvBurstSize - 1)
         
         when ( io.readAddr.ready ) {
           regDVCount := regDVCount - UInt(dvPerBurst)
@@ -166,5 +169,3 @@ class RequestGenerator() extends Module {
     }
   }
 }
-
-// TODO add test code for the address generator here
