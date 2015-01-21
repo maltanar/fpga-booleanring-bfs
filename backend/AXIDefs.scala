@@ -75,52 +75,86 @@ class AXIMasterIF(addrWidthBits: Int, dataWidthBits: Int, idBits: Int) extends B
   val readData    = Decoupled(new AXIReadData(dataWidthBits, idBits)).flip
   
   // rename signals to be compatible with those in the Xilinx template
-  def renameSignals() {
+  def renameSignals(ifName: String) {
     // write address channel
-    writeAddr.bits.addr.setName("M_AXI_AWADDR")
-    writeAddr.bits.prot.setName("M_AXI_AWPROT")
-    writeAddr.bits.size.setName("M_AXI_AWSIZE")
-    writeAddr.bits.len.setName("M_AXI_AWLEN")
-    writeAddr.bits.burst.setName("M_AXI_AWBURST")
-    writeAddr.bits.lock.setName("M_AXI_AWLOCK")
-    writeAddr.bits.cache.setName("M_AXI_AWCACHE")
-    writeAddr.bits.qos.setName("M_AXI_AWQOS")
-    writeAddr.bits.id.setName("M_AXI_AWID")
-    writeAddr.valid.setName("M_AXI_AWVALID")
-    writeAddr.ready.setName("M_AXI_AWREADY")
+    writeAddr.bits.addr.setName(ifName + "_AWADDR")
+    writeAddr.bits.prot.setName(ifName + "_AWPROT")
+    writeAddr.bits.size.setName(ifName + "_AWSIZE")
+    writeAddr.bits.len.setName(ifName + "_AWLEN")
+    writeAddr.bits.burst.setName(ifName + "_AWBURST")
+    writeAddr.bits.lock.setName(ifName + "_AWLOCK")
+    writeAddr.bits.cache.setName(ifName + "_AWCACHE")
+    writeAddr.bits.qos.setName(ifName + "_AWQOS")
+    writeAddr.bits.id.setName(ifName + "_AWID")
+    writeAddr.valid.setName(ifName + "_AWVALID")
+    writeAddr.ready.setName(ifName + "_AWREADY")
     // write data channel
-    writeData.bits.data.setName("M_AXI_WDATA")
-    writeData.bits.strb.setName("M_AXI_WSTRB")
-    writeData.bits.last.setName("M_AXI_WLAST")
-    writeData.valid.setName("M_AXI_WVALID")
-    writeData.ready.setName("M_AXI_WREADY")
+    writeData.bits.data.setName(ifName + "_WDATA")
+    writeData.bits.strb.setName(ifName + "_WSTRB")
+    writeData.bits.last.setName(ifName + "_WLAST")
+    writeData.valid.setName(ifName + "_WVALID")
+    writeData.ready.setName(ifName + "_WREADY")
     // write response channel
-    writeResp.bits.resp.setName("M_AXI_BRESP")
-    writeResp.bits.id.setName("M_AXI_BID")
-    writeResp.valid.setName("M_AXI_BVALID")
-    writeResp.ready.setName("M_AXI_BREADY")
+    writeResp.bits.resp.setName(ifName + "_BRESP")
+    writeResp.bits.id.setName(ifName + "_BID")
+    writeResp.valid.setName(ifName + "_BVALID")
+    writeResp.ready.setName(ifName + "_BREADY")
     // read address channel
-    readAddr.bits.addr.setName("M_AXI_ARADDR")
-    readAddr.bits.prot.setName("M_AXI_ARPROT")
-    readAddr.bits.size.setName("M_AXI_ARSIZE")
-    readAddr.bits.len.setName("M_AXI_ARLEN")
-    readAddr.bits.burst.setName("M_AXI_ARBURST")
-    readAddr.bits.lock.setName("M_AXI_ARLOCK")
-    readAddr.bits.cache.setName("M_AXI_ARCACHE")
-    readAddr.bits.qos.setName("M_AXI_ARQOS")
-    readAddr.bits.id.setName("M_AXI_ARID")
-    readAddr.valid.setName("M_AXI_ARVALID")
-    readAddr.ready.setName("M_AXI_ARREADY")
+    readAddr.bits.addr.setName(ifName + "_ARADDR")
+    readAddr.bits.prot.setName(ifName + "_ARPROT")
+    readAddr.bits.size.setName(ifName + "_ARSIZE")
+    readAddr.bits.len.setName(ifName + "_ARLEN")
+    readAddr.bits.burst.setName(ifName + "_ARBURST")
+    readAddr.bits.lock.setName(ifName + "_ARLOCK")
+    readAddr.bits.cache.setName(ifName + "_ARCACHE")
+    readAddr.bits.qos.setName(ifName + "_ARQOS")
+    readAddr.bits.id.setName(ifName + "_ARID")
+    readAddr.valid.setName(ifName + "_ARVALID")
+    readAddr.ready.setName(ifName + "_ARREADY")
     // read data channel
-    readData.bits.id.setName("M_AXI_RID")
-    readData.bits.data.setName("M_AXI_RDATA")
-    readData.bits.resp.setName("M_AXI_RRESP")
-    readData.bits.last.setName("M_AXI_RLAST")
-    readData.valid.setName("M_AXI_RVALID")
-    readData.ready.setName("M_AXI_RREADY")
+    readData.bits.id.setName(ifName + "_RID")
+    readData.bits.data.setName(ifName + "_RDATA")
+    readData.bits.resp.setName(ifName + "_RRESP")
+    readData.bits.last.setName(ifName + "_RLAST")
+    readData.valid.setName(ifName + "_RVALID")
+    readData.ready.setName(ifName + "_RREADY")
   }
   
   override def clone = { new AXIMasterIF(addrWidthBits, dataWidthBits, idBits).asInstanceOf[this.type] }
+}
+
+
+class AXIMasterReadOnlyIF(addrWidthBits: Int, dataWidthBits: Int, idBits: Int) extends Bundle {  
+
+  // read address channel
+  val readAddr    = Decoupled(new AXIAddress(addrWidthBits, idBits))
+  // read data channel
+  val readData    = Decoupled(new AXIReadData(dataWidthBits, idBits)).flip
+  
+  // rename signals to be compatible with those in the Xilinx template
+  def renameSignals(ifName: String) {
+    // read address channel
+    readAddr.bits.addr.setName(ifName + "_ARADDR")
+    readAddr.bits.prot.setName(ifName + "_ARPROT")
+    readAddr.bits.size.setName(ifName + "_ARSIZE")
+    readAddr.bits.len.setName(ifName + "_ARLEN")
+    readAddr.bits.burst.setName(ifName + "_ARBURST")
+    readAddr.bits.lock.setName(ifName + "_ARLOCK")
+    readAddr.bits.cache.setName(ifName + "_ARCACHE")
+    readAddr.bits.qos.setName(ifName + "_ARQOS")
+    readAddr.bits.id.setName(ifName + "_ARID")
+    readAddr.valid.setName(ifName + "_ARVALID")
+    readAddr.ready.setName(ifName + "_ARREADY")
+    // read data channel
+    readData.bits.id.setName(ifName + "_RID")
+    readData.bits.data.setName(ifName + "_RDATA")
+    readData.bits.resp.setName(ifName + "_RRESP")
+    readData.bits.last.setName(ifName + "_RLAST")
+    readData.valid.setName(ifName + "_RVALID")
+    readData.ready.setName(ifName + "_RREADY")
+  }
+  
+  override def clone = { new AXIMasterReadOnlyIF(addrWidthBits, dataWidthBits, idBits).asInstanceOf[this.type] }
 }
 
 }
