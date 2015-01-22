@@ -24,6 +24,16 @@ class RequestGeneratorWrapper() extends Module {
   }
   
   io.mmap.renameSignals("mmap")
+  
+  // rename signals to recognize as an AXI stream interface
+  val ifName = "strm"
+  io.strm.bits.id.setName(ifName + "_TDEST")
+  io.strm.bits.data.setName(ifName + "_TDATA")
+  io.strm.bits.resp.setName(ifName + "_RRESP")
+  io.strm.bits.last.setName(ifName + "_TLAST")
+  io.strm.valid.setName(ifName + "_TVALID")
+  io.strm.ready.setName(ifName + "_TREADY")
+  
 
   val reqgen = Module(new RequestGenerator())
   // give read address channel to RequestGenerator
