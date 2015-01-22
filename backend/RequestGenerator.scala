@@ -16,9 +16,9 @@ class RequestGenerator() extends Module {
   val dvDataBits = 1          // width of each dense vector element
   
   // define IDs for memory requests
-  val colLenReqID = 1
-  val rowIndReqID = 2
-  val dvReqID = 3
+  val colLenReqID = 0
+  val rowIndReqID = 1
+  val dvReqID = 2
   
   // calculate elements per beat for the various components
   val colLenPerBeat = mmapDataBits / colLenDataBits
