@@ -117,7 +117,7 @@ class RequestGenerator() extends Module {
           // request accepted
           // decrement column count & move on to sReqRowInd
           regColCount := regColCount - UInt(colLenPerBurst)
-          regColLenPtr := regColLenPtr + UInt(colLenPerBurst * 4) // TODO make parametrizable
+          regColLenPtr := regColLenPtr + UInt(colLenBurstSize * (mmapDataBits/8))
           regState := sReqRowInd
         }
       }
@@ -134,7 +134,7 @@ class RequestGenerator() extends Module {
         
         when ( io.readAddr.ready ) {
           regRowIndCount := regRowIndCount - UInt(rowIndPerBurst)
-          regRowIndPtr := regRowIndPtr + UInt(rowIndPerBurst * 4) // TODO make parametrizable
+          regRowIndPtr := regRowIndPtr + UInt(rowIndBurstSize * (mmapDataBits/8))
           regState := sReqDenVec
         }
       }
@@ -151,7 +151,7 @@ class RequestGenerator() extends Module {
         
         when ( io.readAddr.ready ) {
           regDVCount := regDVCount - UInt(dvPerBurst)
-          regDVPtr := regDVPtr + UInt(8)  // TODO make parametrizable
+          regDVPtr := regDVPtr + UInt(dvBurstSize * (mmapDataBits/8)) 
           regState := sCheckFinished
         }
       }    
