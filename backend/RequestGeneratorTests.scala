@@ -58,6 +58,7 @@ class RequestGeneratorTests(c: RequestGenerator) extends Tester(c) {
   val sReqRowInd = 2
   val sReqDenVec = 3
   val sCheckFinished = 4
+  val sFinished = 5
   
   // ======================= start of testbench code ========================
   poke(c.io.start, 0)
@@ -114,6 +115,9 @@ class RequestGeneratorTests(c: RequestGenerator) extends Tester(c) {
     step(1)
   }
   
-  expect(c.io.state, 0) // finished
+  expect(c.io.state, 5) // sFinished
+  poke(c.io.start, 0) 
+  step(1)
+  expect(c.io.state, 0) // sIdle
   
 }

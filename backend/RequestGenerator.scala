@@ -62,7 +62,7 @@ class RequestGenerator() extends Module {
   val regDVCount = Reg(init = UInt(0, 32))
   
   // state machine definitions
-  val sIdle :: sReqColLen :: sReqRowInd :: sReqDenVec :: sCheckFinished :: Nil = Enum(UInt(), 5)
+  val sIdle :: sReqColLen :: sReqRowInd :: sReqDenVec :: sCheckFinished :: sFinished :: Nil = Enum(UInt(), 6)
   val regState = Reg(init = UInt(sIdle))
   
   // default outputs
@@ -159,13 +159,18 @@ class RequestGenerator() extends Module {
     
     is ( sCheckFinished ) {
       when ( allFinished ) {
-        // if all requests issued, go back to idle
-        regState := sIdle
+        // if all requests issued, go to sFinished
+        regState := sFinished
       } .otherwise {
         // not all requests are finished
         // keep cycling
         regState := sReqColLen
       }
+    }
+    
+    is ( sFinished ) {
+      // stay in sFinished until start is low, then go to idle
+      when ( !io.start ) { regState := sIdle }
     }
   }
 }
