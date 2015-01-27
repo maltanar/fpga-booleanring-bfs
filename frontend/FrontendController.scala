@@ -45,7 +45,7 @@ class FrontendController() extends Module {
   val regProcessedNZCount = Reg(init = UInt(0, 32))
   
   // state machine definitions
-  val sIdle :: sReadColLen :: sProcessColumn :: Nil = Enum(UInt(), 3)
+  val sIdle :: sReadColLen :: sProcessColumn :: sFinished :: Nil = Enum(UInt(), 4)
   val regState = Reg(init = UInt(sIdle))
   
   // default outputs
@@ -68,12 +68,12 @@ class FrontendController() extends Module {
   switch ( regState ) {
     is ( sIdle ) {      
       when ( io.start ) { 
+        // zero out status registers
+        regCurrentColLen := UInt(0)
+        regProcessedNZCount := UInt(0)
         regState := sReadColLen 
         // save colCount from input
         regColCount := io.colCount
-        // zero out other register values
-        regCurrentColLen := UInt(0)
-        regProcessedNZCount := UInt(0)
       }
     }
     
@@ -83,8 +83,8 @@ class FrontendController() extends Module {
       // don't generate ready if there are no more cols left
       io.colLengths.ready := !endOfMatrix
       
-      // when no more columns to process, go back to idle
-      when ( endOfMatrix ) { regState := sIdle }
+      // when no more columns to process, go to sFinished
+      when ( endOfMatrix ) { regState := sFinished }
       // otherwise, wait for column length data from input queue
       .elsewhen ( io.colLengths.valid ) {
         // got column length, start processing
@@ -122,5 +122,10 @@ class FrontendController() extends Module {
         io.rowIndices.ready := Bool(true)
       }
     }
+    
+    is ( sFinished ) {
+      when ( !io.start ) { regState := sIdle }
+    }
+    
   }
 }

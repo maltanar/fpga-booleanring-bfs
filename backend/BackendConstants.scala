@@ -19,8 +19,8 @@ trait BackendConstants {
   val dvPerBeat = mmapDataBits / dvDataBits
 
   // define burst sizes for the various components
-  val colLenBurstSize = 8
-  val rowIndBurstSize = 8
+  val colLenBurstSize = 1
+  val rowIndBurstSize = 1
   val dvBurstSize = 1
 
   // calculate elements per burst for the various components
