@@ -110,6 +110,8 @@ class AXIStreamDownsizer(inWidth: Int, outWidth: Int) extends Module {
         // enable shift
         shiftReg.io.shiftEn := Bool(true)
         // go to last state when appropriate, stay here otherwise
+        // note that we don't have to shift the very last step,
+        // hence the one before last is numShiftSteps-2
         when (regShiftCount === UInt(numShiftSteps-2)) { regState := sLastStep }
       }
     }
@@ -137,6 +139,7 @@ class AXIStreamDownsizer(inWidth: Int, outWidth: Int) extends Module {
 }
 
 class AXIStreamDownsizerTester(c: AXIStreamDownsizer) extends Tester(c) {
+  // simple tester for a 64-to-16 bit downsizer
   poke(c.io.in.valid, 0)
   poke(c.io.in.bits, 0)
   poke(c.io.out.ready, 0)
@@ -169,6 +172,49 @@ class AXIStreamDownsizerTester(c: AXIStreamDownsizer) extends Tester(c) {
   expect(c.io.out.bits, UInt("xdead", 16).litValue())
   step(1)
   // since no data on input, should go back to sWaitInput
+  expect(c.io.in.ready, 1)  // ready to pull data
+  expect(c.io.out.valid, 0) // no data on output
+  
+  // scenario 2: 
+  // starts identical to scenario 1,
+  // expose another beat right after the first one
+  poke(c.io.in.bits, UInt("xdeadbeefcafebabe", 64).litValue())
+  poke(c.io.in.valid, 1)
+  step(1)
+  expect(c.io.in.ready, 0)  // no more pull
+  expect(c.io.out.valid, 1) // data on output
+  poke(c.io.out.ready, 1)
+  expect(c.io.out.bits, UInt("xbabe", 16).litValue())
+  step(1)
+  expect(c.io.out.valid, 1) 
+  expect(c.io.out.bits, UInt("xcafe", 16).litValue())
+  step(1)
+  expect(c.io.out.valid, 1) 
+  expect(c.io.out.bits, UInt("xbeef", 16).litValue())
+  step(1)
+  expect(c.io.out.valid, 1) 
+  expect(c.io.out.bits, UInt("xdead", 16).litValue())
+  poke(c.io.in.bits, UInt("xf00dc0debeadfeed", 64).litValue())
+  poke(c.io.in.valid, 1)
+  expect(c.io.in.ready, 1)  // ready to pull data
+  step(1)
+  poke(c.io.in.valid, 0)
+  // should go right to sShift
+  expect(c.io.in.ready, 0)  // no more parallel load
+  expect(c.io.out.valid, 1) // serial data available
+  expect(c.io.out.bits, UInt("xfeed", 16).litValue())
+  poke(c.io.out.ready, 1)
+  step(1)
+  expect(c.io.out.valid, 1) 
+  expect(c.io.out.bits, UInt("xbead", 16).litValue())
+  step(1)
+  expect(c.io.out.valid, 1) 
+  expect(c.io.out.bits, UInt("xc0de", 16).litValue())
+  step(1)
+  expect(c.io.out.valid, 1) 
+  expect(c.io.out.bits, UInt("xf00d", 16).litValue())
+  step(1)
+  // should be back to sWaitInput 
   expect(c.io.in.ready, 1)  // ready to pull data
   expect(c.io.out.valid, 0) // no data on output
 }
