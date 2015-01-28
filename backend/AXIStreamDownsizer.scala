@@ -67,8 +67,8 @@ class AXIStreamDownsizer(inWidth: Int, outWidth: Int) extends Module {
   }
   
   // rename signals to infer AXI stream interfaces in Vivado
-  io.in.renameSignals("in")
-  io.out.renameSignals("out")
+  io.in.renameSignals("wide")
+  io.out.renameSignals("narrow")
   
   // the shift register
   val shiftReg = Module(new ParallelInSerialOut(inWidth, outWidth))
