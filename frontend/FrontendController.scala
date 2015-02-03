@@ -5,10 +5,9 @@ import Literal._
 import Node._
 import AXIStreamDefs._
 
-class FrontendController() extends Module {
+class FrontendController(memDepthWords: Int) extends Module {
   // TODO get these from global config
-  val memDepth = 1024
-  val addrBits = log2Up(memDepth)
+  val addrBits = log2Up(memDepthWords)
   
   val io = new Bundle {
   

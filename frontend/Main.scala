@@ -6,7 +6,8 @@ object MainObj {
     val width = 1
     val depth = 65536
     
-    chiselMain(args, () => Module(new FrontendController()))
+    chiselMain(args, () => Module(new FrontendController(4096)))
+    //chiselMain(args, () => Module(new StreamDeltaGen(32)))
     //chiselMainTest(args, () => Module(new StreamDeltaGenTestBed())) { c => new StreamDeltaGenTester(c) }
     //chiselMain(args, () => Module(new DualPortRAM(width, depth)))
   }
