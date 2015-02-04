@@ -16,6 +16,10 @@ class RequestGenerator() extends Module {
     val colLenStart = UInt(INPUT, 32)
     val rowIndStart = UInt(INPUT, 32)
     val dvStart = UInt(INPUT, 32)
+    // inputs to disable reqs from a particular channel
+    val disableColLen = Bool(INPUT)
+    val disableRowInd = Bool(INPUT)
+    val disableDenVec = Bool(INPUT)
     
     // status interface
     val state = UInt(OUTPUT, 32)
@@ -76,8 +80,9 @@ class RequestGenerator() extends Module {
     }
     
     is ( sReqColLen ) {
-      when ( colCountFinished ) {
-        // requests for all col lengths already sent
+      when ( colCountFinished || io.disableColLen ) {
+        // requests for all col lengths already sent,
+        // or channel disabled
         regState := sReqRowInd 
       } .otherwise {
         // push out next col len request
@@ -97,7 +102,7 @@ class RequestGenerator() extends Module {
     }
     
     is ( sReqRowInd ) {
-      when ( rowIndFinished ) {
+      when ( rowIndFinished || io.disableRowInd ) {
         regState := sReqDenVec
       } .otherwise {
         io.readAddr.valid := Bool(true)
@@ -114,7 +119,7 @@ class RequestGenerator() extends Module {
     }
     
     is ( sReqDenVec ) {
-      when ( denseVecFinished ) {
+      when ( denseVecFinished || io.disableDenVec ) {
         regState := sCheckFinished
       } .otherwise {
         io.readAddr.valid := Bool(true)
