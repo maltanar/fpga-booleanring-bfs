@@ -7,7 +7,7 @@ import AXIStreamDefs._
 
 class FrontendController(memDepthWords: Int) extends Module {
   // TODO get these from global config
-  val addrBits = log2Up(memDepthWords)
+  val addrBits = log2Up(memDepthWords*32)
   
   val io = new Bundle {
   
