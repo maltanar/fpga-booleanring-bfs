@@ -37,7 +37,7 @@ class LevelGenerator(dataWidthBits: Int) extends Module {
   val regNewData = Reg(init = UInt(0,dataWidthBits))
 
   // finite state machine
-  val sIdle :: sWaitOld :: sWaitNew :: sRun :: sFinished :: Nil = Enum(UInt(), 5)
+  val sIdle :: sCheckFinished :: sWaitOld :: sWaitNew :: sRun :: sFinished :: Nil = Enum(UInt(), 6)
   val regState = Reg(init = UInt(sIdle))
 
   // default outputs
@@ -54,6 +54,15 @@ class LevelGenerator(dataWidthBits: Int) extends Module {
         regPointer := io.basePointer
 
         when(io.start) {
+          regState := sCheckFinished
+        }
+      }
+
+      is(sCheckFinished) {
+        when(regBitCount === UInt(0)) {
+          // end of the entire level gen operation
+          regState := sFinished
+        } .otherwise {
           regState := sWaitOld
         }
       }
@@ -78,12 +87,9 @@ class LevelGenerator(dataWidthBits: Int) extends Module {
       }
 
       is(sRun) {
-        when(regBitCount === UInt(0)) {
-          // end of the entire level gen operation
-          regState := sFinished
-        } .elsewhen(regShiftCounter === UInt(0)) {
-          // end of word reached, get new words
-          regState := sWaitOld
+        when(regShiftCounter === UInt(0)) {
+          // end of word reached, go to CheckFinished
+          regState := sCheckFinished
         } .otherwise {
           // core level generation logic:
           // when the bit in the same position in old data is 0 and
