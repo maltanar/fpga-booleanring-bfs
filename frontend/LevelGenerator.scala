@@ -5,23 +5,26 @@ import Literal._
 import Node._
 import AXIStreamDefs._
 
+
+class LevelGeneratorInterface(dataWidthBits: Int) extends Bundle {
+  // control interface
+  val start = Bool(INPUT)
+  val bitCount = UInt(INPUT, 32)
+  val basePointer = UInt(INPUT, 32)
+
+  // status interface
+  val state = UInt(OUTPUT, 32)
+
+  // data stream inputs
+  val oldData = new AXIStreamSlaveIF(UInt(width = dataWidthBits))
+  val newData = new AXIStreamSlaveIF(UInt(width = dataWidthBits))
+
+  // address stream output
+  val writeAddrs = new AXIStreamMasterIF(UInt(width = 32))
+}
+
 class LevelGenerator(dataWidthBits: Int) extends Module {
-  val io = new Bundle {
-    // control interface
-    val start = Bool(INPUT)
-    val bitCount = UInt(INPUT, 32)
-    val basePointer = UInt(INPUT, 32)
-
-    // status interface
-    val state = UInt(OUTPUT, 32)
-
-    // data stream inputs
-    val oldData = new AXIStreamSlaveIF(UInt(width = dataWidthBits))
-    val newData = new AXIStreamSlaveIF(UInt(width = dataWidthBits))
-
-    // address stream output
-    val writeAddrs = new AXIStreamMasterIF(UInt(width = 32))
-  }
+  val io = new LevelGeneratorInterface(dataWidthBits)
 
   // internal registers to keep config and state
   val regBitCount = Reg(init = UInt(0, 32))
