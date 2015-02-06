@@ -64,6 +64,11 @@ class LevelGenerator(dataWidthBits: Int) extends Module {
           regState := sFinished
         } .otherwise {
           regState := sWaitOld
+          // there may be less than a word's worth of shifts left
+          // calculate which is the lesser of the two and assign shiftCounter
+          // accordingly
+          val incompleteWord = (regBitCount < UInt(dataWidthBits))
+          regShiftCounter := Mux(incompleteWord, regBitCount, UInt(dataWidthBits))
         }
       }
 
@@ -80,7 +85,6 @@ class LevelGenerator(dataWidthBits: Int) extends Module {
         io.newData.ready := Bool(true)
 
         when(io.newData.valid) {
-          regShiftCounter := UInt(dataWidthBits)
           regNewData := io.newData.bits
           regState := sRun
         }
