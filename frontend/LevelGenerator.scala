@@ -117,3 +117,128 @@ class LevelGenerator(dataWidthBits: Int) extends Module {
       }
   }
 }
+
+
+
+// testbed for the LevelGenerator
+// instantiates LevelGenerator and adds FIFOs on I/Os
+// this makes testing in Chisel easier
+class LevelGeneratorTestBed() extends Module {
+  val io = new LevelGeneratorInterface(32)
+
+  val levgen = Module(new LevelGenerator(32))
+
+  val inQueue1 = Module(new Queue(UInt(width=32), entries = 16))
+  val inQueue2 = Module(new Queue(UInt(width=32), entries = 16))
+
+  val outQueue = Module(new Queue(UInt(width=32), entries = 32))
+
+  inQueue1.io.enq <> io.oldData
+  inQueue1.io.deq <> levgen.io.oldData
+
+  inQueue2.io.enq <> io.newData
+  inQueue2.io.deq <> levgen.io.newData
+
+  outQueue.io.enq <> levgen.io.writeAddrs
+  outQueue.io.deq <> io.writeAddrs
+
+  levgen.io.start := io.start
+  levgen.io.bitCount := io.bitCount
+  levgen.io.basePointer := io.basePointer
+  io.state := levgen.io.state
+}
+
+class LevelGeneratorTester(c: LevelGeneratorTestBed) extends Tester(c) {
+
+  def fillFIFO(inds: Array[Int], fifoIF: DecoupledIO[UInt], fifoObj: Queue[UInt]) {
+    var dc = 0
+    for(ind <- inds) {
+      poke(fifoIF.bits, UInt(ind).litValue())
+      poke(fifoIF.valid, 1)
+      dc = dc + 1
+      step(1)
+      expect(fifoObj.io.count, dc)
+    }
+    poke(fifoIF.valid, 0)
+  }
+
+  def drainFIFO(fifoIF: DecoupledIO[UInt], fifoObj: Queue[UInt], golden: Array[Int])
+  {
+    println("Now examining output FIFO contents...")
+    var dc = 0
+    while( peek(fifoObj.io.count) != 0) {
+      poke(fifoIF.ready, 1)
+      if(peek(fifoIF.valid) == 1) {
+        expect(fifoIF.bits, golden(dc))
+        dc = dc + 1
+      }
+      step(1)
+    }
+    poke(fifoIF.ready, 0)
+    println("Data elements read: " + dc )
+  }
+
+  def launchTestCase( oldData: Array[Int], newData: Array[Int],
+                      golden: Array[Int], bitCount: Int, basePtr: Int)
+  {
+    expect(c.io.state, 0) // back to idle
+    // fill input FIFOs
+    fillFIFO(oldData, c.io.oldData, c.inQueue1)
+    fillFIFO(newData, c.io.newData, c.inQueue2)
+    // set up test
+    poke(c.io.bitCount, bitCount)
+    poke(c.io.basePointer, basePtr)
+    poke(c.io.start, 1)
+    step(1)
+    expect(c.io.state, 1) // sCheckFinished
+    step(1)
+    expect(c.io.state, 2) // sWaitOld
+    step(1)
+    expect(c.inQueue1.io.count, 0)  // queue 1 drained
+    expect(c.io.state, 3) // sWaitNew
+    step(1)
+    expect(c.inQueue2.io.count, 0)  // queue 2 drained
+    expect(c.io.state, 4) // sRun
+    step(bitCount+1)  // TODO not quite, will be more due to states 1-2-3
+    expect(c.io.state, 1) // sCheckFinished
+    step(1)
+    expect(c.io.state, 5) // sFinished
+    poke(c.io.start, 0)
+    step(1)
+    expect(c.io.state, 0) // back to idle
+    // read contents of output FIFO
+    drainFIFO(c.io.writeAddrs, c.outQueue, golden)
+  }
+
+
+  println("Test case 1: given no start signal, stay in idle after reset")
+  poke(c.io.start, 0)
+  poke(c.io.bitCount, 0)
+  poke(c.io.basePointer, 0)
+  step(1)
+  expect(c.io.state, 0)
+
+  println("Test case 2: given bitCount = 0, go to sFinished")
+  poke(c.io.start, 1)
+  poke(c.io.bitCount, 0)
+  step(1)
+  expect(c.io.state, 1) // sCheckFinished
+  step(1)
+  expect(c.io.state, 5) //sFinished
+  poke(c.io.start, 0) // remove start
+  step(1)
+  expect(c.io.state, 0) // back to idle
+
+  println("Test case 3: regular usage with a single word (32 bits)")
+  // TODO these arrays should be constructed by functions that take in indices
+  // and produce the raw data
+  val oldData = Array(1)
+  val newData = Array(11)
+  // TODO the goldData array should be auto-constructed from olData and newData
+  var goldData = Array(1*4, 3*4)
+
+  launchTestCase(oldData, newData, goldData, 32, 0)
+
+  println("Test case 4: regular usage, less than 32 bits")
+  launchTestCase(oldData, newData, goldData, 17, 0)
+}
