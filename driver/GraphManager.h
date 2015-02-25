@@ -29,6 +29,10 @@ public:
 	void printAllPartitionInfo() const;
 	void dumpPartitionData(unsigned int no) const;
 
+	unsigned int getTotalWorkloadSize() const {
+		return m_nzCount*4 + m_partitionCount*(m_colCount+1)*4;
+	}
+
 	unsigned int getColCount() const {
 		return m_colCount;
 	}
