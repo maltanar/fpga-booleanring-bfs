@@ -67,11 +67,17 @@ void BFSinHardware(int accNum, unsigned int * configBase,
 
 	do {
 		TimerLoadAndStart(timerStart);
-		mgr.step(true);
+		mgr.step(false);
 		timerStop = TimerRead();
 		TimerStop();
 		cout << "Regular operation: " << endl;
-		cout << timerStart - timerStop << " ticks of an 333 MHz clock" << endl;
+		cout << timerStart - timerStop << " ticks of a 333 MHz clock" << endl;
+		float peMHz = 150.0;
+		float peCycles = (timerStart-timerStop)*(peMHz/333.0);
+		cout << (unsigned int) peCycles << " ticks of a " << peMHz << " MHz clock" << endl;
+		cout << "Bandwidth: " << endl;
+
+		cout << (float) gm->getTotalWorkloadSize() / peCycles << " bytes/cycle" << endl;
 
 		TimerLoadAndStart(timerStart);
 		updateCount = mgr.updateResults();
