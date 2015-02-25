@@ -123,8 +123,6 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
 
       when ( endOfColumn ) {
         // read in a new column
-        // TODO performance opt - we can already do this in colCount was 1
-        // in the previous processing state
         regState := sReadColLen
       }.elsewhen ( io.rowIndices.valid ) {
         io.resMemPort2.writeEn := regDenseVec
@@ -132,8 +130,15 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
         regCurrentColLen := regCurrentColLen - UInt(1)
         // increment NZ counter by one
         regProcessedNZCount := regProcessedNZCount + UInt(1)
-        //can operate on both upper and lower words for the next
-        regState := sProcessColumnBoth
+
+        // go directly to new column if this was the end of the col --
+        // saves performance on very sparse graphs
+        when ( regCurrentColLen === UInt(1) ) {
+          regState := sReadColLen
+        } .otherwise {
+          //can operate on both upper and lower words for the next
+          regState := sProcessColumnBoth
+        }
       }
     }
 
@@ -151,8 +156,6 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
       when ( endOfColumn )
       {
         // read in a new column
-        // TODO performance opt - we can already do this in colCount was 1
-        // in the previous processing state
         regState := sReadColLen
       }
       .elsewhen ( io.rowIndices.valid ) {
@@ -164,6 +167,11 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
           regCurrentColLen := regCurrentColLen - UInt(2)
           // increment NZ counter
           regProcessedNZCount := regProcessedNZCount + UInt(2)
+          // go directly to new column if this was the end of the col --
+          // saves performance on very sparse graphs
+          when ( regCurrentColLen === UInt(2) ) {
+            regState := sReadColLen
+          }
           // we can stay in the same state
         } .otherwise {
           // only one element remaining in column
