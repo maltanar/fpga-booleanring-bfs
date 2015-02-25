@@ -40,8 +40,8 @@ BFSAccelerator::~BFSAccelerator() {
 void BFSAccelerator::assignGraph(GraphMatrixData* graph, unsigned int * inputVectorBitArray) {
 	assert(graph);
 	// make sure we have enough BRAM storage for this graph
-	assert(graph->rows < BRAM_BIT_COUNT);
-	assert(inputVectorBitArray);
+	assert(graph->rows <= BRAM_BIT_COUNT);
+	//assert(inputVectorBitArray);
 
 	m_graph = graph;
 	m_inputVectorBits = inputVectorBitArray;
@@ -81,8 +81,8 @@ void BFSAccelerator::setupBackend() {
 	// IMPORTANT! the FIFOs are NOT *guaranteed* not to exceed these thresholds
 	// due to the latency in receiving the feedback, so make sure the FIFOs are big
 	// enough.
-	m_outputRegs[ctlColPtrFIFOFullThreshold] = 128;
-	m_outputRegs[ctlRowIndFIFOFullThreshold] = 768;
+	m_outputRegs[ctlColPtrFIFOFullThreshold] = 512;
+	m_outputRegs[ctlRowIndFIFOFullThreshold] = 512;
 	m_outputRegs[ctlDenVecFIFOFullThreshold] = 8;
 
 
@@ -131,6 +131,10 @@ void BFSAccelerator::printFrontendProfile() {
 	m_outputRegs[ctlBRAMAddr] = feStateReadColLen;
 	unsigned int colLenReadCycles = m_inputRegs[statFEProfile];
 	cout << "ReadColLen efficiency: " << (float) m_graph->cols / (float) colLenReadCycles << endl;
+
+	unsigned int totalCycles = colLenReadCycles + procCycles;
+	unsigned int workSize = m_graph->nz*4 + (m_graph->cols+1)*4 + m_graph->cols/8;
+	cout << "Bandwidth: " << (float) workSize / (float) totalCycles << " bytes/cycle" << endl;
 }
 
 void BFSAccelerator::resetFIFOs() {
