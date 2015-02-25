@@ -21,18 +21,22 @@ HardwareBFSManager::~HardwareBFSManager() {
 	/*if (m_distanceVector)
 		delete[] m_distanceVector;*/
 
+	/*
 	if (m_inputVector)
 		delete[] m_inputVector;
+		*/
 }
 
 void HardwareBFSManager::setGraph(GraphManager* graphMan) {
 	assert(graphMan);
 	assert(m_graphMan == 0);
+	assert(graphMan->getColCount() < 3*64*1024*8);	// check that inputVector fits into OCM
 
 	m_graphMan = graphMan;
 
 	m_inputVectorWordCount = 1 + (graphMan->getRowCount() / 32);
 	m_inputVector = new unsigned int[m_inputVectorWordCount];
+	//m_inputVector = (unsigned int *) 0x00000008;
 	m_distanceVector = (int *) RESVEC_BASE;
 }
 
@@ -168,7 +172,7 @@ void HardwareBFSManager::waitAllPEsFinished() {
 				// check if PE signalling finished
 				if(m_pe[i].isFinished()) {
 					// don't need to wait on this anymore
-					std::cout << "PE " << i << " finished" << std::endl;
+					//std::cout << "PE " << i << " finished" << std::endl;
 					m_busy[i] = false;
 					waitedPECount--;
 				}
