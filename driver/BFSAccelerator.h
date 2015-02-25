@@ -11,8 +11,9 @@
 #include "GraphManager.h"
 
 #define		INPVEC_ALIGN		8
-#define		COLPTR_ALIGN		64
-#define		ROWIND_ALIGN		64
+// should be aligned to data_per_beat * burst_beats
+#define		COLPTR_ALIGN		64		// 2 data per beat, 8 beats
+#define		ROWIND_ALIGN		256		// 2 data per beat, 128 beats
 #define 	BRAM_WORD_COUNT		8192
 #define		BRAM_BIT_COUNT		(BRAM_WORD_COUNT * 32)
 
@@ -27,6 +28,7 @@ public:
 	void printFrontendStats();
 	void printFIFODataCounts();
 	void printAcceleratorState();
+	void printFrontendProfile();
 
 	void assignGraph(GraphMatrixData * graph, unsigned int * inputVectorBitArray);
 
@@ -89,7 +91,8 @@ protected:
 		statColPtrFIFODataCount = 5,
 		statRowIndFIFODataCount = 6,
 		statDenVecFIFODataCount = 7,
-		ctlBRAMMux = 15
+		ctlBRAMMux = 15,
+		statFEProfile = 9,
 	} MiscRegisters;
 
 	volatile unsigned int * m_inputRegs;

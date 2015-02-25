@@ -10,6 +10,8 @@
 
 using namespace std;
 
+static const char * feStateNames[] = {"Idle", "ReadColLen", "ProcUpper", "ProcBoth", "Finished"};
+
 
 inline unsigned int BFSBurstAlign(unsigned int base, unsigned int align)
 {
@@ -64,9 +66,9 @@ void BFSAccelerator::start() {
 
 bool BFSAccelerator::isFinished() {
 	bool frontendFinished = (m_inputRegs[feStatState] == feStateFinished);
-	bool backendFinished  = (m_inputRegs[rgStatState] == beStateFinished);
+	//bool backendFinished  = (m_inputRegs[rgStatState] == beStateFinished);
 
-	return backendFinished && frontendFinished;
+	return /*backendFinished && */ frontendFinished;
 }
 
 void BFSAccelerator::setupBackend() {
@@ -79,9 +81,9 @@ void BFSAccelerator::setupBackend() {
 	// IMPORTANT! the FIFOs are NOT *guaranteed* not to exceed these thresholds
 	// due to the latency in receiving the feedback, so make sure the FIFOs are big
 	// enough.
-	m_outputRegs[ctlColPtrFIFOFullThreshold] = 512;
-	m_outputRegs[ctlRowIndFIFOFullThreshold] = 512;
-	m_outputRegs[ctlDenVecFIFOFullThreshold] = 1;
+	m_outputRegs[ctlColPtrFIFOFullThreshold] = 128;
+	m_outputRegs[ctlRowIndFIFOFullThreshold] = 768;
+	m_outputRegs[ctlDenVecFIFOFullThreshold] = 8;
 
 
 	// input data pointers
@@ -107,6 +109,30 @@ void BFSAccelerator::setBRAMAccessMux(bool bEnableSwCtrl) {
 	m_outputRegs[ctlBRAMMux] = (bEnableSwCtrl ? 0 : 0xFFFFFFFF);
 }
 
+void BFSAccelerator::printFrontendProfile() {
+	// print profile information from StateProfiler
+	// we use the BRAM address output also to select state
+
+	cout << "Frontend profile stats: " << endl;
+	for(unsigned int i = 0; i <= feStateFinished; i++) {
+		m_outputRegs[ctlBRAMAddr] = i;
+		cout << feStateNames[i] << ": " << m_inputRegs[statFEProfile] << endl;
+	}
+
+	m_outputRegs[ctlBRAMAddr] = feStateProcessUpper;
+	unsigned int procCycles = m_inputRegs[statFEProfile];
+
+	m_outputRegs[ctlBRAMAddr] = feStateProcessBoth;
+	procCycles += m_inputRegs[statFEProfile];
+
+	unsigned int procMinCycles = (m_graph->nz)/2 + m_graph->cols;
+	cout << "Proc efficiency: " << (float) procMinCycles / (float) procCycles << endl;
+
+	m_outputRegs[ctlBRAMAddr] = feStateReadColLen;
+	unsigned int colLenReadCycles = m_inputRegs[statFEProfile];
+	cout << "ReadColLen efficiency: " << (float) m_graph->cols / (float) colLenReadCycles << endl;
+}
+
 void BFSAccelerator::resetFIFOs() {
 	// reset FIFOs and everything between backend-frontend via I/O regs
 	// to ensure all stale data after a BFS step is removed
@@ -128,13 +154,16 @@ void BFSAccelerator::clearBRAM() {
 }
 
 void BFSAccelerator::deinit() {
-	// make sure frontend and backend are finished
+	// make sure frontend is finished
 	assert(m_inputRegs[feStatState] == feStateFinished);
-	assert(m_inputRegs[rgStatState] == beStateFinished);
+	// flush FIFOs until backend can finish
+	while(m_inputRegs[rgStatState] != beStateFinished) {
+		// cleanup after BFS step
+		resetFIFOs();
+	}
 	// allow frontend and backend to go back to idle
 	m_outputRegs[feCtrlStart] = 0;
 	m_outputRegs[rgCtrlStart] = 0;
-	// cleanup after BFS step
 	resetFIFOs();
 }
 

@@ -30,7 +30,7 @@ public:
 
 	void assignPartition(int partitionInd, int peInd); // assign partition to PE, init result BRAM
 	unsigned int copyPEResultToDRAM(int peInd);
-	void step();
+	void step(bool printStats);
 	unsigned int updateResults();
 
 

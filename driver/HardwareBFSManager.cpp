@@ -158,7 +158,7 @@ void HardwareBFSManager::setNextDistance(unsigned int dist) {
 void HardwareBFSManager::waitAllPEsFinished() {
 	unsigned int patience[BFS_PE_COUNT];
 	// initialize timeouts for each PE
-	iForEachPE(patience[i] = 10000000; );
+	iForEachPE(patience[i] = 1000000; );
 	int waitedPECount = BFS_PE_COUNT;
 	// while we are still waiting on some PEs
 	while(waitedPECount > 0) {
@@ -215,11 +215,14 @@ unsigned int HardwareBFSManager::updateResults() {
 void HardwareBFSManager::deinitAll() {
 	// call deinit on all PEs
 	iForEachPE(m_pe[i].deinit(););
+
 }
 
-void HardwareBFSManager::step() {
+void HardwareBFSManager::step(bool printStats) {
 	// perform one step of BFS and keep statistics
 	startAll();
 	waitAllPEsFinished();
 	deinitAll();
+	if(printStats)
+		iForEachPE(m_pe[i].printFrontendProfile(););
 }

@@ -67,7 +67,7 @@ void BFSinHardware(int accNum, unsigned int * configBase,
 
 	do {
 		TimerLoadAndStart(timerStart);
-		mgr.step();
+		mgr.step(true);
 		timerStop = TimerRead();
 		TimerStop();
 		cout << "Regular operation: " << endl;
