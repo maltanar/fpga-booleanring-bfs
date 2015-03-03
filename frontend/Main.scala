@@ -6,7 +6,8 @@ object MainObj {
     val resultMemDepthWords = 1024 * 28
 
     //chiselMain(args, () => Module(new FrontendController(resultMemDepthWords)))
-    chiselMain(args, () => Module(new FrontendControllerTurbo(resultMemDepthWords)))
+    //chiselMain(args, () => Module(new FrontendControllerTurbo(resultMemDepthWords)))
+    chiselMain(args, () => Module(new ResultDumper(resultMemDepthWords)))
     //chiselMain(args, () => Module(new StateProfiler(8)))
     //chiselMain(args, () => Module(new LevelGenerator(32)))
     //chiselMainTest(args, () => Module(new LevelGeneratorTestBed())) { c => new LevelGeneratorTester(c) }
