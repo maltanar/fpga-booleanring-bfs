@@ -7,6 +7,8 @@ import AXIStreamDefs._
 import AXIDefs._
 import Constants._
 
+// TODO rename this class to ReadGenerator or such
+
 class RequestGenerator() extends Module {
   val io = new Bundle {
     // control interface
@@ -20,15 +22,15 @@ class RequestGenerator() extends Module {
     val disableColLen = Bool(INPUT)
     val disableRowInd = Bool(INPUT)
     val disableDenVec = Bool(INPUT)
-    
+
     // status interface
     val state = UInt(OUTPUT, 32)
-    
+
     // AXI read address channel output
     val readAddr = Decoupled(new AXIAddress(addrBits, idBits))
 
   }
-  
+
   // inputs registered at start, then used for counting down the
   // number of elements left or as memory pointers
   val regColCount = Reg(init = UInt(0, 32))
@@ -37,14 +39,14 @@ class RequestGenerator() extends Module {
   val regRowIndPtr = Reg(init = UInt(0, 32))
   val regDVPtr = Reg(init = UInt(0, 32))
   val regDVCount = Reg(init = UInt(0, 32))
-  
+
   // state machine definitions
   val sIdle :: sReqColLen :: sReqRowInd :: sReqDenVec :: sCheckFinished :: sFinished :: Nil = Enum(UInt(), 6)
   val regState = Reg(init = UInt(sIdle))
-  
+
   // default outputs
   io.state := regState
-  
+
   // readAddr channel data that will be altered by the FSM
   io.readAddr.valid := Bool(false)
   io.readAddr.bits.addr := UInt(0)
@@ -57,13 +59,13 @@ class RequestGenerator() extends Module {
   io.readAddr.bits.cache := UInt("b0010") // no alloc, modifiable, no buffer
   io.readAddr.bits.size := UInt(log2Up((mmapDataBits/8)-1)) // full-datawidth bursts
   io.readAddr.bits.burst := UInt(1) // incrementing burst
-  
+
   val colCountFinished = (regColCount === UInt(0))
   val rowIndFinished = (regRowIndCount === UInt(0))
   val denseVecFinished = (regDVCount === UInt(0))
   val allFinished = colCountFinished && rowIndFinished && denseVecFinished
-  
-  
+
+
   // FSM for control
   switch ( regState ) {
     is ( sIdle ) {
@@ -75,22 +77,22 @@ class RequestGenerator() extends Module {
       regColLenPtr := io.colLenStart
       regRowIndPtr := io.rowIndStart
       regDVPtr := io.dvStart
-      
+
       when ( io.start ) { regState := sReqColLen }
     }
-    
+
     is ( sReqColLen ) {
       when ( colCountFinished || io.disableColLen ) {
         // requests for all col lengths already sent,
         // or channel disabled
-        regState := sReqRowInd 
+        regState := sReqRowInd
       } .otherwise {
         // push out next col len request
         io.readAddr.valid := Bool(true)
         io.readAddr.bits.addr := regColLenPtr
         io.readAddr.bits.id := UInt(colLenReqID)
         io.readAddr.bits.len := UInt(colLenBurstSize - 1)
-        
+
         when ( io.readAddr.ready ) {
           // request accepted
           // decrement column count & move on to sReqRowInd
@@ -100,7 +102,7 @@ class RequestGenerator() extends Module {
         }
       }
     }
-    
+
     is ( sReqRowInd ) {
       when ( rowIndFinished || io.disableRowInd ) {
         regState := sReqDenVec
@@ -109,7 +111,7 @@ class RequestGenerator() extends Module {
         io.readAddr.bits.addr := regRowIndPtr
         io.readAddr.bits.id := UInt(rowIndReqID)
         io.readAddr.bits.len := UInt(rowIndBurstSize - 1)
-        
+
         when ( io.readAddr.ready ) {
           regRowIndCount := regRowIndCount - UInt(rowIndPerBurst)
           regRowIndPtr := regRowIndPtr + UInt(rowIndBurstSize * (mmapDataBits/8))
@@ -117,7 +119,7 @@ class RequestGenerator() extends Module {
         }
       }
     }
-    
+
     is ( sReqDenVec ) {
       when ( denseVecFinished || io.disableDenVec ) {
         regState := sCheckFinished
@@ -126,15 +128,15 @@ class RequestGenerator() extends Module {
         io.readAddr.bits.addr := regDVPtr
         io.readAddr.bits.id := UInt(dvReqID)
         io.readAddr.bits.len := UInt(dvBurstSize - 1)
-        
+
         when ( io.readAddr.ready ) {
           regDVCount := regDVCount - UInt(dvPerBurst)
-          regDVPtr := regDVPtr + UInt(dvBurstSize * (mmapDataBits/8)) 
+          regDVPtr := regDVPtr + UInt(dvBurstSize * (mmapDataBits/8))
           regState := sCheckFinished
         }
-      }    
+      }
     }
-    
+
     is ( sCheckFinished ) {
       when ( allFinished ) {
         // if all requests issued, go to sFinished
@@ -145,7 +147,7 @@ class RequestGenerator() extends Module {
         regState := sReqColLen
       }
     }
-    
+
     is ( sFinished ) {
       // stay in sFinished until start is low, then go to idle
       when ( !io.start ) { regState := sIdle }
