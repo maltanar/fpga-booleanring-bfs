@@ -12,6 +12,15 @@ class MemReadWritePort(lineSize: Int, addrBits: Int) extends Bundle {
   override def clone = { new MemReadWritePort(lineSize,addrBits).asInstanceOf[this.type] }
 }
 
+class AsymMemReadWritePort(writeSize: Int, readSize: Int, addrBits: Int) extends Bundle {
+  val addr = UInt(INPUT, width=addrBits)
+  val dataIn = UInt(INPUT, width=writeSize)
+  val writeEn = Bool(INPUT)
+  val dataOut = UInt(OUTPUT, width=readSize)
+  override def clone =
+    { new AsymMemReadWritePort(writeSize, readSize,addrBits).asInstanceOf[this.type] }
+}
+
 // the ISE-generated block RAM is declared as a black box
 class VectorStorage extends BlackBox {
   val sizeBits = 32768
@@ -26,12 +35,12 @@ class VectorStorage extends BlackBox {
 
   // rename signals to match generated Verilog inst template
   io.en.setName("ena")
-  
+
   io.portA.addr.setName("addra")
   io.portA.dataIn.setName("dina")
   io.portA.dataOut.setName("douta")
   io.portA.writeEn.setName("wea")
-  
+
   io.portB.addr.setName("addrb")
   io.portB.dataIn.setName("dinb")
   io.portB.dataOut.setName("doutb")

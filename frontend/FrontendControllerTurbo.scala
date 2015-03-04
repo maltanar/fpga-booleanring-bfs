@@ -26,8 +26,8 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
     val dvValues = new AXIStreamSlaveIF(UInt(width = 1))
 
     // interface towards result vector memory
-    val resMemPort1 = new MemReadWritePort(1, addrBits).flip
-    val resMemPort2 = new MemReadWritePort(1, addrBits).flip
+    val resMemPort1 = new AsymMemReadWritePort(1, 32, addrBits).flip
+    val resMemPort2 = new AsymMemReadWritePort(1, 32, addrBits).flip
   }
 
   // rename AXI stream interfaces to support Vivado type inference
