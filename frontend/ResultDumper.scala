@@ -15,8 +15,8 @@ class ResultDumper(memDepthWords: Int) extends Module {
   val io = new Bundle {
     // control/status interface
     val start = Bool(INPUT)
-    val wordCount = UInt(INPUT, 32)
-    val state = UInt(OUTPUT, 32)
+    val wordCount = UInt(INPUT, 16)
+    val finished = Bool(OUTPUT)
 
     // BRAM read ports
     val readAddr1 = UInt(OUTPUT, addrBits)
@@ -56,11 +56,10 @@ class ResultDumper(memDepthWords: Int) extends Module {
   // for our case, since the read port is 32 bits wide and write is 1 bit wide
   io.readAddr1 := (regReadAddr << bramAddressShift)
   io.readAddr2 := ((regReadAddr + UInt(1)) << bramAddressShift)
+  io.finished := Bool(false)
 
   val sIdle :: sWaitFIFOHasRoom :: sReq :: sFinished :: Nil = Enum(UInt(), 4)
   val regState = Reg(init=UInt(sIdle))
-
-  io.state := regState
 
   // default assignment to valid shiftreg
   regValid1 := Bool(false)
@@ -101,14 +100,16 @@ class ResultDumper(memDepthWords: Int) extends Module {
           // issue requests (one burst beat)
           regValid1 := Bool(true)
           regReqCount := regReqCount - UInt(1)
-          // each burst beat is two BRAM words
+          // each burst beat is two BRAM word (dual-port)
           regReadAddr := regReadAddr + UInt(2)
-          regWordsLeft := regWordsLeft - UInt(2)
+          // the words we count on the interface are 8-byte words
+          regWordsLeft := regWordsLeft - UInt(1)
           // stay in this state
         }
       }
 
       is (sFinished) {
+        io.finished := Bool(true)
         // wait until !start to go back to idle
         when ( !io.start ) {
           regState := sIdle
