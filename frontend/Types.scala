@@ -13,12 +13,12 @@ class MemReadWritePort(lineSize: Int, addrBits: Int) extends Bundle {
 }
 
 class AsymMemReadWritePort(writeSize: Int, readSize: Int, addrBits: Int) extends Bundle {
-  val addr = UInt(INPUT, width=addrBits)
+  val addr = UInt(OUTPUT, width=addrBits)
   val dataRead = UInt(INPUT, width=readSize)
-  val writeEn = Bool(INPUT)
+  val writeEn = Bool(OUTPUT)
   val dataWrite = UInt(OUTPUT, width=writeSize)
   override def clone =
-    { new AsymMemReadWritePort(writeSize, readSize,addrBits).asInstanceOf[this.type] }
+    { new AsymMemReadWritePort(writeSize,readSize,addrBits).asInstanceOf[this.type] }
 }
 
 // the ISE-generated block RAM is declared as a black box
