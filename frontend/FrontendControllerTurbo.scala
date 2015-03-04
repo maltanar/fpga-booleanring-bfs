@@ -12,7 +12,7 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
   val io = new Bundle {
 
     // control interface
-    val start = Bool(INPUT)
+    val ctrl = UInt(INPUT, 32)
     val colCount = UInt(INPUT, 32)
 
     // status interface
@@ -26,14 +26,38 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
     val dvValues = new AXIStreamSlaveIF(UInt(width = 1))
 
     // interface towards result vector memory
-    val resMemPort1 = new AsymMemReadWritePort(1, 32, addrBits).flip
-    val resMemPort2 = new AsymMemReadWritePort(1, 32, addrBits).flip
+    val resMemPort1 = new AsymMemReadWritePort(1, 32, addrBits)
+    val resMemPort2 = new AsymMemReadWritePort(1, 32, addrBits)
+
+    // output for dumping the result vector
+    val resultVector = new AXIStreamMasterIF(UInt(width = 64))
   }
 
   // rename AXI stream interfaces to support Vivado type inference
   io.colLengths.renameSignals("colLengths")
   io.rowIndices.renameSignals("rowIndices")
   io.dvValues.renameSignals("dvValues")
+  io.resultVector.renameSignals("resultVector")
+
+  // break out control signals
+  val start = io.ctrl(0)
+  val enableResultDump = io.ctrl(1)
+  val resWordCount = io.ctrl(31, 16)
+
+  // instantiate the ResultDumper and its result queue
+  val resDump = Module(new ResultDumper(memDepthWords))
+  // start will be set by FSM when it's time
+  val regStartDump = Reg(init=Bool(false))
+  resDump.io.start := regStartDump
+  resDump.io.wordCount := resWordCount
+  resDump.io.readData1 := io.resMemPort1.dataRead
+  resDump.io.readData2 := io.resMemPort2.dataRead
+  // TODO parametrize queue size from global config
+  val resDumpQueue = Module(new Queue(UInt(width=64), entries=16))
+
+  resDump.io.fifoDataCount <> resDumpQueue.io.count
+  resDump.io.resultVector <> resDumpQueue.io.enq
+  resDumpQueue.io.deq <> io.resultVector
 
   // internal status registers
   // number of columns in SpM (during execution, num of
@@ -47,7 +71,7 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
   val regProcessedNZCount = Reg(init = UInt(0, 32))
 
   // state machine definitions
-  val sIdle :: sReadColLen :: sProcessColumnUpper :: sProcessColumnBoth :: sFinished :: Nil = Enum(UInt(), 5)
+  val sIdle :: sReadColLen :: sProcessColumnUpper :: sProcessColumnBoth :: sFinished :: sResDump :: Nil = Enum(UInt(), 6)
   val regState = Reg(init = UInt(sIdle))
 
   // default outputs
@@ -58,13 +82,16 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
 
   // result vector memory ports
   // port 1 uses the lower rowInd
-  io.resMemPort1.addr := io.rowIndices.bits(31, 0)
-  io.resMemPort1.writeEn := Bool(false)
-  io.resMemPort1.dataIn := UInt(1)
   // port 2 uses the upper rowInd
-  io.resMemPort2.addr := io.rowIndices.bits(63, 32)
+  val rowIndLower = io.rowIndices.bits(31, 0)
+  val rowIndUpper = io.rowIndices.bits(63, 32)
+  // multiplex address to result BRAM depending on value of result dump register
+  io.resMemPort1.addr := Mux(regStartDump, resDump.io.readAddr1, rowIndLower)
+  io.resMemPort1.writeEn := Bool(false)
+  io.resMemPort1.dataWrite := UInt(1)
+  io.resMemPort2.addr := Mux(regStartDump, resDump.io.readAddr2, rowIndUpper)
   io.resMemPort2.writeEn := Bool(false)
-  io.resMemPort2.dataIn := UInt(1)
+  io.resMemPort2.dataWrite := UInt(1)
 
   // status outputs
   io.state := regState
@@ -74,7 +101,8 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
   // FSM for control
   switch ( regState ) {
     is ( sIdle ) {
-      when ( io.start ) {
+      when ( start && !enableResultDump ) {
+        // start normal frontend operation
         // zero out registers
         regCurrentColLen := UInt(0)
         regProcessedNZCount := UInt(0)
@@ -83,6 +111,18 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
         regState := sReadColLen
         // save colCount from input
         regColCount := io.colCount
+      } .elsewhen ( start && enableResultDump ) {
+        // start memory result dump
+        regState := sResDump
+      }
+    }
+
+    is ( sResDump ) {
+      regStartDump := Bool(true)
+      // wait until ResultDumper signals finished
+      when ( resDump.io.finished ) {
+        regState := sFinished
+        regStartDump := Bool(false)
       }
     }
 
@@ -187,7 +227,7 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
     }
 
     is ( sFinished ) {
-      when ( !io.start ) { regState := sIdle }
+      when ( !start ) { regState := sIdle }
     }
 
   }
