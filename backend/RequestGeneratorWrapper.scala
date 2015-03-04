@@ -38,6 +38,7 @@ class RequestGeneratorWrapper() extends Module {
   }
 
   io.mmap.renameSignals("mmap")
+  io.writeDataIn.renameSignals("writeDataIn")
 
   // rename signals to recognize as an AXI stream interface
   val ifName = "strm"
