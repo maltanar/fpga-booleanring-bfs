@@ -14,9 +14,9 @@ class MemReadWritePort(lineSize: Int, addrBits: Int) extends Bundle {
 
 class AsymMemReadWritePort(writeSize: Int, readSize: Int, addrBits: Int) extends Bundle {
   val addr = UInt(INPUT, width=addrBits)
-  val dataIn = UInt(INPUT, width=writeSize)
+  val dataRead = UInt(INPUT, width=readSize)
   val writeEn = Bool(INPUT)
-  val dataOut = UInt(OUTPUT, width=readSize)
+  val dataWrite = UInt(OUTPUT, width=writeSize)
   override def clone =
     { new AsymMemReadWritePort(writeSize, readSize,addrBits).asInstanceOf[this.type] }
 }
