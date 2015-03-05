@@ -56,9 +56,9 @@ class LevelGenerator(dataWidthBits: Int) extends Module {
         // set config registers from inputs
         regBitCount := io.bitCount
         regWriteIndex := UInt(0)
-        regWriteCount := UInt(0)
 
         when(io.start) {
+          regWriteCount := UInt(0)
           regState := sCheckFinished
         }
       }
