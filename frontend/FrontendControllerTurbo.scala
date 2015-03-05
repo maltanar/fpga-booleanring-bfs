@@ -23,7 +23,7 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
     // SpMV data inputs
     val colLengths = new AXIStreamSlaveIF(UInt(width = 32))
     val rowIndices = new AXIStreamSlaveIF(UInt(width = 64))
-    val dvValues = new AXIStreamSlaveIF(UInt(width = 1))
+    val dvWords = new AXIStreamSlaveIF(UInt(width = 64))
 
     // interface towards result vector memory
     val resMemPort1 = new AsymMemReadWritePort(1, 32, addrBits)
@@ -36,7 +36,7 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
   // rename AXI stream interfaces to support Vivado type inference
   io.colLengths.renameSignals("colLengths")
   io.rowIndices.renameSignals("rowIndices")
-  io.dvValues.renameSignals("dvValues")
+  io.dvWords.renameSignals("dvWords")
   io.resultVector.renameSignals("resultVector")
 
   // break out control signals
@@ -59,6 +59,12 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
   resDump.io.resultVector <> resDumpQueue.io.enq
   resDumpQueue.io.deq <> io.resultVector
 
+  // instantiate the downsizer for the dvValues
+  val dvDownsizer = Module(new AXIStreamDownsizer(64, 1))
+  val dvValues = dvDownsizer.io.out
+  dvDownsizer.io.in <> io.dvWords
+
+
   // internal status registers
   // number of columns in SpM (during execution, num of
   // columns left to process)
@@ -78,7 +84,7 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
   // input queues
   io.colLengths.ready := Bool(false)
   io.rowIndices.ready := Bool(false)
-  io.dvValues.ready := Bool(false)
+  dvValues.ready := Bool(false)
 
   // result vector memory ports
   // port 1 uses the lower rowInd
@@ -133,13 +139,13 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
       // when no more columns to process, go to sFinished
       when ( endOfMatrix ) { regState := sFinished }
       // otherwise, wait for column length and dense vector data
-      .elsewhen ( io.colLengths.valid && io.dvValues.valid ) {
+      .elsewhen ( io.colLengths.valid && dvValues.valid ) {
         // note that FIFOs are necessary to avoid ready-valid loop here
         io.colLengths.ready := Bool(true)
-        io.dvValues.ready := Bool(true)
+        dvValues.ready := Bool(true)
         // register column length and dense vector values
         regCurrentColLen := io.colLengths.bits
-        regDenseVec := io.dvValues.bits
+        regDenseVec := dvValues.bits
         // one less column to go
         regColCount := regColCount - UInt(1)
         // processing state depends on current NZ count
