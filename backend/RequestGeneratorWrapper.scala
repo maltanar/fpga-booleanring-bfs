@@ -5,12 +5,15 @@ import Literal._
 import Node._
 import AXIStreamDefs._
 import AXIDefs._
+import AXILiteDefs._
 
 class RequestGeneratorWrapper() extends Module {
   val io = new Bundle {
     val mmap = new AXIMasterIF(32, 64, 2)
+    val distVecWrite = new AXILiteMasterWriteOnlyIF(32, 32)
     val strm = Decoupled(new AXIReadData(64, 2))
     val writeDataIn = new AXIStreamSlaveIF(UInt(width = 64))
+    val distVecInds = new AXIStreamSlaveIF(UInt(width = 32))
 
     // control interface
     val start = Bool(INPUT)
@@ -20,6 +23,8 @@ class RequestGeneratorWrapper() extends Module {
     val rowIndStart = UInt(INPUT, 32)
     val dvStart = UInt(INPUT, 32)
     val writeBase = UInt(INPUT, 32)
+    val distVecBase = UInt(INPUT, 32)
+    val currentLevel = UInt(INPUT, 32)
 
     // fullness thresholds for stopping requests
     val colLenFullThreshold = UInt(INPUT, 32)
@@ -35,9 +40,12 @@ class RequestGeneratorWrapper() extends Module {
     val state = UInt(OUTPUT, 32)
     val writeState = UInt(OUTPUT, 32)
     val writeCount = UInt(OUTPUT, 32)
+    val distVecUpdateCount = UInt(OUTPUT, 32)
   }
 
   io.mmap.renameSignals("mmap")
+  io.distVecWrite.renameSignals("distVecWrite")
+  io.distVecInds.renameSignals("distVecInds")
   io.writeDataIn.renameSignals("writeDataIn")
 
   // rename signals to recognize as an AXI stream interface
@@ -90,4 +98,17 @@ class RequestGeneratorWrapper() extends Module {
   writegen.io.writeDataOut <> io.mmap.writeData
   writegen.io.writeAddrOut <> io.mmap.writeAddr
   writegen.io.writeRespIn <> io.mmap.writeResp
+
+  // instantiate the distance vector updater
+  val distVecUpdater = Module(new DistVecUpdater())
+  io.distVecInds <> distVecUpdater.io.distVecInds
+  // bind AXI Lite MM channel to distVecUpdater
+  io.distVecWrite.writeAddr <> distVecUpdater.io.writeAddrOut
+  io.distVecWrite.writeData <> distVecUpdater.io.writeDataOut
+  io.distVecWrite.writeResp <> distVecUpdater.io.writeRespIn
+  // status/control for distVecUpdater
+  distVecUpdater.io.start <> io.start
+  distVecUpdater.io.distVecBase <> io.distVecBase
+  distVecUpdater.io.currentLevel <> io.currentLevel
+  distVecUpdater.io.distVecUpdateCount <> io.distVecUpdateCount
 }
