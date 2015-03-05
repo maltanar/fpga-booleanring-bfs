@@ -107,7 +107,15 @@ class LevelGenerator(dataWidthBits: Int) extends Module {
         when(regShiftCounter === UInt(0)) {
           // end of word reached, go to CheckFinished
           regState := sCheckFinished
-        }  .otherwise {
+        }
+        /*.elsewhen (regOldData === regNewData) {
+          // optimization: no need to go bit by bit if entire words are equal
+          // this will not generate any writes, skip to the end of this
+          regBitCount := regBitCount - regShiftCounter
+          regWriteIndex := regWriteIndex + regShiftCounter
+          regShiftCounter := UInt(0)
+
+        }*/ .otherwise {
           // core level generation logic:
           // when the bit in the same position in old data is 0 and
           // new data is 1, we create a write request for that position
