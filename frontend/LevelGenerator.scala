@@ -19,6 +19,8 @@ class LevelGeneratorInterface(dataWidthBits: Int) extends Bundle {
 
   // address stream output
   val writeIndices = new AXIStreamMasterIF(UInt(width = 32))
+  // copy of the newData stream, for the input vector update
+  val newDataCopy = new AXIStreamMasterIF(UInt(width = dataWidthBits))
 }
 
 class LevelGenerator(dataWidthBits: Int) extends Module {
@@ -36,7 +38,7 @@ class LevelGenerator(dataWidthBits: Int) extends Module {
   val regNewData = Reg(init = UInt(0,dataWidthBits))
 
   // finite state machine
-  val sIdle :: sCheckFinished :: sWaitOld :: sWaitNew :: sRun :: sFinished :: Nil = Enum(UInt(), 6)
+  val sIdle :: sCheckFinished :: sWaitOld :: sWaitNew :: sCopyNew :: sRun :: sFinished :: Nil = Enum(UInt(), 7)
   val regState = Reg(init = UInt(sIdle))
 
   // default outputs
@@ -46,6 +48,8 @@ class LevelGenerator(dataWidthBits: Int) extends Module {
   io.newData.ready := Bool(false)
   io.finished := Bool(false)
   io.writeCount := regWriteCount
+  io.newDataCopy.valid := Bool(false)
+  io.newDataCopy.bits := regNewData
 
   switch(regState) {
       is(sIdle) {
@@ -87,6 +91,14 @@ class LevelGenerator(dataWidthBits: Int) extends Module {
 
         when(io.newData.valid) {
           regNewData := io.newData.bits
+          regState := sCopyNew
+        }
+      }
+
+      is(sCopyNew) {
+        io.newDataCopy.valid := Bool(true)
+
+        when(io.newDataCopy.ready) {
           regState := sRun
         }
       }
@@ -102,9 +114,8 @@ class LevelGenerator(dataWidthBits: Int) extends Module {
           val genWriteRequest = !regOldData(0) && regNewData(0)
           io.writeIndices.valid := genWriteRequest
 
-          when(genWriteRequest) { regWriteCount := regWriteCount + UInt(1) }
-
           when(io.writeIndices.ready || !genWriteRequest) {
+            when(genWriteRequest) { regWriteCount := regWriteCount + UInt(1) }
             regOldData  := regOldData >> UInt(1)
             regNewData  := regNewData >> UInt(1)
             regBitCount := regBitCount - UInt(1)
