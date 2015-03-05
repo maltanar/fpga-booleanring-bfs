@@ -11,14 +11,15 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
 
   val io = new Bundle {
 
-    // control interface
+    // control+status interface
     val ctrl = UInt(INPUT, 32)
     val colCount = UInt(INPUT, 32)
+    val rowCount = UInt(INPUT, 32)
 
-    // status interface
     val state = UInt(OUTPUT, 32)
     val processedColCount = UInt(OUTPUT, 32)
     val processedNZCount = UInt(OUTPUT, 32)
+    val updateCount = UInt(OUTPUT, 32)
 
     // SpMV data inputs
     val colLengths = new AXIStreamSlaveIF(UInt(width = 32))
@@ -31,6 +32,8 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
 
     // output for dumping the result vector
     val resultVector = new AXIStreamMasterIF(UInt(width = 64))
+    // address stream output for updates
+    val writeIndices = new AXIStreamMasterIF(UInt(width = 32))
   }
 
   // rename AXI stream interfaces to support Vivado type inference
@@ -38,6 +41,7 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
   io.rowIndices.renameSignals("rowIndices")
   io.dvWords.renameSignals("dvWords")
   io.resultVector.renameSignals("resultVector")
+  io.writeIndices.renameSignals("writeIndices")
 
   // break out control signals
   val start = io.ctrl(0)
@@ -57,13 +61,31 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
 
   resDump.io.fifoDataCount <> resDumpQueue.io.count
   resDump.io.resultVector <> resDumpQueue.io.enq
-  resDumpQueue.io.deq <> io.resultVector
+
+  // instantiate the LevelGenerator
+  val levelGenerator = Module(new LevelGenerator(64))
+  levelGenerator.io.start := regStartDump
+  levelGenerator.io.bitCount := io.rowCount
+  io.updateCount := levelGenerator.io.writeCount
+  io.writeIndices <> levelGenerator.io.writeIndices
+  resDumpQueue.io.deq <> levelGenerator.io.newData
+  io.resultVector <> levelGenerator.io.newDataCopy
 
   // instantiate the downsizer for the dvValues
   val dvDownsizer = Module(new AXIStreamDownsizer(64, 1))
   val dvValues = dvDownsizer.io.out
-  dvDownsizer.io.in <> io.dvWords
 
+  // the dense vector input word stream is multiplexed
+  // regStartDump decides who has control over dvWords (downsizer or levelGen)
+  // - if regStartDump = 1, levelGenerator has access
+  // - if regStartDump = 0, downsizer has access
+  levelGenerator.io.oldData.bits := io.dvWords.bits
+  levelGenerator.io.oldData.valid := (io.dvWords.valid & regStartDump)
+
+  dvDownsizer.io.in.bits := io.dvWords.bits
+  dvDownsizer.io.in.valid := (io.dvWords.valid & !regStartDump)
+
+  io.dvWords.ready := Mux(regStartDump, levelGenerator.io.oldData.ready, dvDownsizer.io.in.ready)
 
   // internal status registers
   // number of columns in SpM (during execution, num of
@@ -125,8 +147,8 @@ class FrontendControllerTurbo(memDepthWords: Int) extends Module {
 
     is ( sResDump ) {
       regStartDump := Bool(true)
-      // wait until ResultDumper signals finished
-      when ( resDump.io.finished ) {
+      // wait until ResultDumper and LevelGenerator signal finished
+      when ( resDump.io.finished && levelGenerator.io.finished ) {
         regState := sFinished
         regStartDump := Bool(false)
       }
