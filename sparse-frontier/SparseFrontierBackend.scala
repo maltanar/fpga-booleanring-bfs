@@ -10,57 +10,64 @@ class SparseFrontierBackend() extends Module {
     val distVecBase = UInt(INPUT, 32)
     val distVecCount = UInt(INPUT, 32)
     val colPtrBase = UInt(INPUT, 32)
-    val rowIndBase = UInt(INPUT, 32)
+    val currentLevel = UInt(INPUT, 32)
+
     // control and status
     val state = UInt(OUTPUT, 32)
-    val start = UInt(INPUT, 1)
+    val start = Bool(INPUT)
 
-    // AXI MM interface - 32 bit addr, 64 bit data, 2 bits request id
-    // for the rowind requests
-    val aximm64 = new AXIMasterReadOnlyIF(32, 64, 2)
     // for smaller requests: distVec, colPtr
     val aximm32 = new AXIMasterReadOnlyIF(32, 32, 2)
 
     // decoupled channel to push out read data to AXI stream switch
     val readData32 = Decoupled(new AXIReadData(32, 2))
 
-    // loopback from readData32: frontier indices after TID demux
-    val frontierInds = new AXIStreamSlaveIF(UInt(width = 32))
+    // loopback from readData32: dist.vec elements
+    val distVecIn = new AXIStreamSlaveIF(UInt(width = 32))
     // loopback from readData32: row start/end pointers after TID demux
     val rowStartEnd = new AXIStreamSlaveIF(UInt(width = 32))
-    // output to frontend: are the upper&lower rowind words valid?
-    val rowIndsAndValid = Decoupled(UInt(width = 66))
   }
 
   // rename interfaces for Vivado IP integrator
-  io.aximm64.renameSignals("aximm64")
   io.aximm32.renameSignals("aximm32")
+  io.distVecIn.renameSignals("distVecIn")
+  io.rowStartEnd.renameSignals("rowStartEnd")
+  val ifName = "readData32"
+  io.readData32.bits.id.setName(ifName + "_TDEST")
+  io.readData32.bits.data.setName(ifName + "_TDATA")
+  io.readData32.bits.resp.setName(ifName + "_RRESP")
+  io.readData32.bits.last.setName(ifName + "_TLAST")
+  io.readData32.valid.setName(ifName + "_TVALID")
+  io.readData32.ready.setName(ifName + "_TREADY")
 
   // break out read data channels
   io.readData32 <> io.aximm32.readData
 
-  // instantiate rowind req generator and give channels to it:
-  val neighborFetcher = Module(new NeighborFetcher())
-  neighborFetcher.io.start <> io.start
-  neighborFetcher.io.rowIndBase <> io.rowIndBase
-
-
-  // io.aximm64, io.rowStartEnd, io.rowIndsAndValid, rowIndBase
+  // instantiate the frontier filter -- pick out indices in dist.vec that
+  // have value == currentLevel, and push them into frontierQueue
+  val frontierFilter = Module(new FrontierFilter())
+  val frontierQueue = Module(new Queue(UInt(width=32), entries=16))
+  val frontierInds = frontierQueue.io.deq
+  frontierFilter.io.start <> io.start
+  frontierFilter.io.distVecCount <> io.distVecCount
+  frontierFilter.io.currentLevel <> io.currentLevel
+  frontierFilter.io.distVecIn <> io.distVecIn
+  frontierFilter.io.frontierOut <> frontierQueue.io.enq
 
   // registers for internal bookkeeping
   val regDistVecElemsLeft = Reg(init = UInt(0, 32))
   val regDistVecPtr = Reg(init = UInt(0, 32))
   val regColPtrBase = Reg(init = UInt(0, 32))
-  val regRowIndBase = Reg(init = UInt(0, 32))
   val regFrontierIndex = Reg(init = UInt(0, 32))
   val regFrontierSize = Reg(init = UInt(0, 32))
 
   // FSM for control -- dist.vec and col.ptr requests
-  val sIdle :: sReqDistVec :: sFetchIndex :: sReqColPtr :: sCheckFinished :: sFinished :: Nil = Enum(UInt(), 6)
+  val sIdle :: sReqDistVec :: sFetchIndex :: sReqColPtrs :: sCheckFinished :: sFinished :: Nil = Enum(UInt(), 6)
   val regState = Reg(init = UInt(sIdle))
+  io.state := regState
 
   // default outputs -- loopback 32-bit data channels
-  io.frontierInds.ready := Bool(false)
+  frontierInds.ready := Bool(false)
   io.rowStartEnd.ready := Bool(false)
 
   // default outputs - 32-bit AXI channel
@@ -77,7 +84,7 @@ class SparseFrontierBackend() extends Module {
   io.aximm32.readAddr.bits.burst := UInt(1) // incrementing burst
 
   // the size of the next dist.vec burst -- do large bursts when possible
-  val nextDistVecBurstSize = Mux(regDistVecElemsLeft >= UInt(8), 8, 1)
+  val maxDistVecBurstSize = Mux(regDistVecElemsLeft >= UInt(8), UInt(8), UInt(1))
   val distVecFinished = (regDistVecElemsLeft === UInt(0))
 
   val distVecReqID = 0
@@ -89,7 +96,6 @@ class SparseFrontierBackend() extends Module {
         regDistVecElemsLeft := io.distVecCount
         regDistVecPtr := io.distVecBase
         regColPtrBase := io.colPtrBase
-        regRowIndBase := io.rowIndBase
 
         when(io.start) {
           regFrontierSize := UInt(0)
@@ -105,13 +111,13 @@ class SparseFrontierBackend() extends Module {
           io.aximm32.readAddr.valid := Bool(true)
           io.aximm32.readAddr.bits.addr := regDistVecPtr
           // the -1 comes from the AXI definition of the burst length param
-          io.aximm32.readAddr.bits.len := UInt(nextDistVecBurstSize-1)
+          io.aximm32.readAddr.bits.len := maxDistVecBurstSize - UInt(1)
           io.aximm32.readAddr.bits.id := UInt(distVecReqID)
 
           when(io.aximm32.readAddr.ready) {
             // request acknowledged -- increment pointer, decrement counter
-            regDistVecPtr := regDistVecPtr + UInt(4 * nextDistVecBurstSize)
-            regDistVecElemsLeft := regDistVecElemsLeft - UInt(nextDistVecBurstSize)
+            regDistVecPtr := regDistVecPtr + UInt(4) * maxDistVecBurstSize
+            regDistVecElemsLeft := regDistVecElemsLeft - maxDistVecBurstSize
             regState := sFetchIndex
           }
         }
@@ -119,11 +125,11 @@ class SparseFrontierBackend() extends Module {
 
       is(sFetchIndex) {
         // fetch an index from the frontier queue, if there is one waiting
-        io.frontierInds.ready := Bool(true)
+        frontierInds.ready := Bool(true)
         // each frontier index is 4 bytes -- multiply before registering
-        regFrontierIndex := io.frontierInds.bits * UInt(4)
+        regFrontierIndex := frontierInds.bits * UInt(4)
 
-        when(io.frontierInds.valid) {
+        when(frontierInds.valid) {
           // increment the frontier size
           regFrontierSize := regFrontierSize + UInt(1)
           // request this frontier index' col ptr
@@ -150,11 +156,15 @@ class SparseFrontierBackend() extends Module {
       is(sCheckFinished) {
         // by default, go back to requesting the distance vector
         regState := sReqDistVec
+        // TODO remove this: mindlessly consume rowStartEnd for now
+        io.rowStartEnd.ready := Bool(true)
+        /*
         when(distVecFinished) {
           // TODO wait until entire frontier has been processed
-          // -- is distVecFinished really the right condition here? (no)
+          // : NeighborFetcher col count = frontier size
           regState := sFinished
         }
+        */
       }
 
       is(sFinished) {
