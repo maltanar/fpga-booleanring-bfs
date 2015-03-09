@@ -17,14 +17,25 @@ class NeighborFetcher() extends Module {
     val aximm64 = new AXIMasterReadOnlyIF(32, 64, 2)
 
     // loopback from readData32: row start/end pointers after TID demux
-    val rowStartEnd = new AXIStreamSlaveIF(UInt(width = 32))
+    val rowStartEndIn = new AXIStreamSlaveIF(UInt(width = 32))
 
     // rowind metadata: is aligned (highest bit) plus length of column
-    val rowIndsMetadata = Decoupled(UInt(width = 33))
+    val rowIndsMetadata = new AXIStreamMasterIF(UInt(width = 32))
     val rowIndsData = Decoupled(new AXIReadData(64, 2))
   }
 
   io.aximm64.renameSignals("aximm64")
+  io.rowStartEndIn.renameSignals("rowStartEndIn")
+  io.rowIndsMetadata.renameSignals("rowIndsMetadata")
+  val ifName = "rowIndsData"
+  io.rowIndsData.bits.id.setName(ifName + "_TDEST")
+  io.rowIndsData.bits.data.setName(ifName + "_TDATA")
+  io.rowIndsData.bits.resp.setName(ifName + "_RRESP")
+  io.rowIndsData.bits.last.setName(ifName + "_TLAST")
+  io.rowIndsData.valid.setName(ifName + "_TVALID")
+  io.rowIndsData.ready.setName(ifName + "_TREADY")
+
+
   io.rowIndsData <> io.aximm64.readData
 
   val regColCount = Reg(init = UInt(0, 32))
@@ -33,8 +44,12 @@ class NeighborFetcher() extends Module {
   val regElementsLeft = Reg(init = UInt(0, 32))
   val regTotalNZ = Reg(init=UInt(0,32))
 
-  // burst length of next request
+  // 64 bit channel, 32 bit data: 2 elements per beat
+  val elementsPerBeat = 64/32
+  // burst length of next request, in 64-bit beats
   val regBurstLen = Reg(init=UInt(0,8))
+  // actual number of elements covered by this burst
+  val regBurstElements = Reg(init=UInt(0,8))
 
   val sIdle :: sWaitPtrStart :: sWaitPtrEnd :: sPushMetadata :: sBuildReq :: sReq :: Nil = Enum(UInt(), 6)
   val regState = Reg(init = UInt(sIdle))
@@ -42,16 +57,18 @@ class NeighborFetcher() extends Module {
   // is the current row ind ptr aligned to 8 bytes?
   val isAligned = (regElementStart(2,0) === UInt(0) )
   val isAlignedVal = Mux(isAligned, UInt(1, width=1), UInt(0, width=1))
-  // only do bursts if at least 8 elements are remaining
-  val canDoBurst = (regElementsLeft >= UInt(8))
+  // we do bursts of 8 beats to increase bandwidth utilization:
+  // only do bursts if at least 8*2=16 elements are remaining
+  val burstLen = 8
+  val canDoBurst = (regElementsLeft >= UInt(burstLen*elementsPerBeat))
 
   // default outputs
   io.state := regState
   io.colCount := regColCount
   io.nzCount := regTotalNZ
-  io.rowStartEnd.ready := Bool(false)
+  io.rowStartEndIn.ready := Bool(false)
   io.rowIndsMetadata.valid := Bool(false)
-  io.rowIndsMetadata.bits := Cat(isAlignedVal, regElementsLeft)
+  io.rowIndsMetadata.bits := Cat(isAlignedVal, regElementsLeft(30,0))
 
   // default outputs - 64-bit AXI channel read requests
   io.aximm64.readAddr.valid := Bool(false)
@@ -69,7 +86,6 @@ class NeighborFetcher() extends Module {
 
   switch(regState) {
       is(sIdle) {
-        regBurstLen := UInt(1)
         when(io.start) {
           regRowIndBase := io.rowIndBase
           regColCount := UInt(0)
@@ -84,10 +100,10 @@ class NeighborFetcher() extends Module {
           regState := sIdle
         } .otherwise {
           // wait for starting colptr
-          io.rowStartEnd.ready := Bool(true)
-          regElementStart := io.rowStartEnd.bits
+          io.rowStartEndIn.ready := Bool(true)
+          regElementStart := io.rowStartEndIn.bits
 
-          when(io.rowStartEnd.valid) {
+          when(io.rowStartEndIn.valid) {
             regState := sWaitPtrEnd
           }
         }
@@ -95,15 +111,18 @@ class NeighborFetcher() extends Module {
 
       is(sWaitPtrEnd) {
         // wait for ending colptr
-        io.rowStartEnd.ready := Bool(true)
+        io.rowStartEndIn.ready := Bool(true)
+        // calculate column length
+        regElementsLeft := io.rowStartEndIn.bits - regElementStart
 
-        when(io.rowStartEnd.valid) {
+        when(io.rowStartEndIn.valid) {
           // got a new column
           regColCount := regColCount + UInt(1)
-          // calculate column length
-          regElementsLeft := io.rowStartEnd.bits - regElementStart
+
           // add rowind base to get read pointer
-          regElementStart := regElementStart + regRowIndBase
+          // also: elementStart is an index, convert to offset
+          // (each element is 4 bytes)
+          regElementStart := UInt(4)*regElementStart + regRowIndBase
           regState := sPushMetadata
         }
       }
@@ -130,9 +149,12 @@ class NeighborFetcher() extends Module {
           regState := sWaitPtrStart
         } .otherwise {
           // elements left - still requests to issue
-          // compute burst length
+          // compute burst length - this is in 8-byte beats
           val burstLen = Mux(isAligned && canDoBurst, UInt(8), UInt(1))
           regBurstLen := UInt(burstLen)
+          // compute how many elements we cover with this burst
+          val isHalfBeat = !isAligned || (regElementsLeft === UInt(1))
+          regBurstElements := Mux(isHalfBeat,burstLen, burstLen*UInt(2) )
           regState := sReq
         }
       }
@@ -142,9 +164,9 @@ class NeighborFetcher() extends Module {
 
         when(io.aximm64.readAddr.ready) {
           // read request accepted, update pointers and counts
-          regElementStart := regElementStart + UInt(4) * regBurstLen
-          regElementsLeft := regElementsLeft - regBurstLen
-          regTotalNZ := regTotalNZ + regBurstLen
+          regElementStart := regElementStart + UInt(4) * regBurstElements
+          regElementsLeft := regElementsLeft - regBurstElements
+          regTotalNZ := regTotalNZ + regBurstElements
           // go back to sBuildReq for more requests, or get new column
           regState := sBuildReq
         }
