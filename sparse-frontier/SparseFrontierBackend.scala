@@ -1,11 +1,8 @@
-packge BFSSparseFrontier
+package BFSSparseFrontier
 
 import Chisel._
 import AXIDefs._
 import AXIStreamDefs._
-
-// TODO refine to use either single or double 32-bit AXI mm channels
-// and complete implementation
 
 class SparseFrontierBackend() extends Module {
   val io = new Bundle {
@@ -42,7 +39,12 @@ class SparseFrontierBackend() extends Module {
   // break out read data channels
   io.readData32 <> io.aximm32.readData
 
-  // TODO instantiate rowind req generator and give channels to it:
+  // instantiate rowind req generator and give channels to it:
+  val neighborFetcher = Module(new NeighborFetcher())
+  neighborFetcher.io.start <> io.start
+  neighborFetcher.io.rowIndBase <> io.rowIndBase
+
+
   // io.aximm64, io.rowStartEnd, io.rowIndsAndValid, rowIndBase
 
   // registers for internal bookkeeping
