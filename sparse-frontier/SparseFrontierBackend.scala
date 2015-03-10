@@ -15,6 +15,9 @@ class SparseFrontierBackend() extends Module {
     val frontierSize = UInt(OUTPUT, 32)
     val nzCount = UInt(OUTPUT, 32)
 
+    val throttleFIFOSize = UInt(INPUT, 32)
+    val throttleFIFODataCount = UInt(INPUT, 32)
+
     // control and status
     val state = UInt(OUTPUT, 32)
     val ngState = UInt(OUTPUT, 32)
@@ -64,6 +67,18 @@ class SparseFrontierBackend() extends Module {
   // break out read data channels
   io.readData32 <> io.aximm32.readData
   io.rowIndsData <> io.aximm64.readData
+
+  // instantiate the throttler
+  val throttler = Module(new BackendThrottler())
+  throttler.io.fifoSize <> io.throttleFIFOSize
+  throttler.io.fifoDataCount <> io.throttleFIFODataCount
+  // monitor the AXI address and data transactions with the throttler
+  val reqValid = (io.aximm32.readAddr.valid && io.aximm32.readAddr.ready)
+  val rspValid = (io.aximm32.readData.valid && io.aximm32.readData.ready)
+  throttler.io.addRequest.valid := reqValid
+  throttler.io.addRequest.bits := io.aximm32.readAddr.bits.id(0)
+  throttler.io.addResponse.valid := rspValid && io.aximm32.readData.bits.last
+  throttler.io.addResponse.bits := io.aximm32.readData.bits.id(0)
 
   // instantiate the frontier filter -- pick out indices in dist.vec that
   // have value == currentLevel, and push them into frontierQueue

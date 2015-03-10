@@ -8,5 +8,6 @@ object MainObj {
     //chiselMain(args, () => Module(new NeighborFetcher()))
     //chiselMain(args, () => Module(new FrontierFilter()))
     chiselMain(args, () => Module(new SparseFrontierBackend()))
+    //chiselMain(args, () => Module(new BackendThrottler()))
   }
 }
