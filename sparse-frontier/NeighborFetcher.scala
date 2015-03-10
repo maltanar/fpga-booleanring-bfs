@@ -13,30 +13,14 @@ class NeighborFetcher() extends Module {
     val nzCount = UInt(OUTPUT, 32)
 
     // read requests for the 64-bit AXI channel
-    //val readReqs = Decoupled(new AXIAddress(64, 2))
-    val aximm64 = new AXIMasterReadOnlyIF(32, 64, 2)
+    val rowIndReadReqs = Decoupled(new AXIAddress(32, 2))
 
     // loopback from readData32: row start/end pointers after TID demux
     val rowStartEndIn = new AXIStreamSlaveIF(UInt(width = 32))
 
     // rowind metadata: is aligned (highest bit) plus length of column
     val rowIndsMetadata = new AXIStreamMasterIF(UInt(width = 32))
-    val rowIndsData = Decoupled(new AXIReadData(64, 2))
   }
-
-  io.aximm64.renameSignals("aximm64")
-  io.rowStartEndIn.renameSignals("rowStartEndIn")
-  io.rowIndsMetadata.renameSignals("rowIndsMetadata")
-  val ifName = "rowIndsData"
-  io.rowIndsData.bits.id.setName(ifName + "_TDEST")
-  io.rowIndsData.bits.data.setName(ifName + "_TDATA")
-  io.rowIndsData.bits.resp.setName(ifName + "_RRESP")
-  io.rowIndsData.bits.last.setName(ifName + "_TLAST")
-  io.rowIndsData.valid.setName(ifName + "_TVALID")
-  io.rowIndsData.ready.setName(ifName + "_TREADY")
-
-
-  io.rowIndsData <> io.aximm64.readData
 
   val regColCount = Reg(init = UInt(0, 32))
   val regRowIndBase = Reg(init = UInt(0, 32))
@@ -71,18 +55,18 @@ class NeighborFetcher() extends Module {
   io.rowIndsMetadata.bits := Cat(isAlignedVal, regElementsLeft(30,0))
 
   // default outputs - 64-bit AXI channel read requests
-  io.aximm64.readAddr.valid := Bool(false)
-  io.aximm64.readAddr.bits.addr := regElementStart
-  io.aximm64.readAddr.bits.len := regBurstLen - UInt(1) // -1 from protocol desc.
-  io.aximm64.readAddr.bits.id := UInt(2)
+  io.rowIndReadReqs.valid := Bool(false)
+  io.rowIndReadReqs.bits.addr := regElementStart
+  io.rowIndReadReqs.bits.len := regBurstLen - UInt(1) // -1 from protocol desc.
+  io.rowIndReadReqs.bits.id := UInt(2)
   // full-datawidth bursts
-  io.aximm64.readAddr.bits.size := UInt(log2Up((64/8)-1))
+  io.rowIndReadReqs.bits.size := UInt(log2Up((64/8)-1))
   // the rest of the readAddr channel data is the same and not modified
-  io.aximm64.readAddr.bits.prot := UInt(0)
-  io.aximm64.readAddr.bits.qos := UInt(0)
-  io.aximm64.readAddr.bits.lock := Bool(false)
-  io.aximm64.readAddr.bits.cache := UInt("b0010") // no alloc, modifiable, no buffer
-  io.aximm64.readAddr.bits.burst := UInt(1) // incrementing burst
+  io.rowIndReadReqs.bits.prot := UInt(0)
+  io.rowIndReadReqs.bits.qos := UInt(0)
+  io.rowIndReadReqs.bits.lock := Bool(false)
+  io.rowIndReadReqs.bits.cache := UInt("b0010") // no alloc, modifiable, no buffer
+  io.rowIndReadReqs.bits.burst := UInt(1) // incrementing burst
 
   switch(regState) {
       is(sIdle) {
@@ -160,9 +144,9 @@ class NeighborFetcher() extends Module {
       }
 
       is(sReq) {
-        io.aximm64.readAddr.valid := Bool(true)
+        io.rowIndReadReqs.valid := Bool(true)
 
-        when(io.aximm64.readAddr.ready) {
+        when(io.rowIndReadReqs.ready) {
           // read request accepted, update pointers and counts
           regElementStart := regElementStart + UInt(4) * regBurstElements
           regElementsLeft := regElementsLeft - regBurstElements
