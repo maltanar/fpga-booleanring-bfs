@@ -23,6 +23,10 @@ class BackendThrottler() extends Module {
     val canProceedT1 = Bool(OUTPUT)
   }
 
+  io.canProceedT1 := io.fifoDataCount < (io.fifoSize >> UInt(1))
+  io.canProceedT0 := io.fifoDataCount < (io.fifoSize >> UInt(1))
+  /*
+
   val sIdle :: sRun :: Nil = Enum(UInt(), 2)
   val regState = Reg(init = UInt(sIdle))
 
@@ -48,4 +52,5 @@ class BackendThrottler() extends Module {
 
   io.canProceedT0 := (regTotalElements < (regFIFOSize - UInt(pessimism*t0w)))
   io.canProceedT1 := (regTotalElements < (regFIFOSize - UInt(pessimism*t1w)))
+  */
 }
