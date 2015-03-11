@@ -83,7 +83,7 @@ class SparseFrontierBackend() extends Module {
   // instantiate the frontier filter -- pick out indices in dist.vec that
   // have value == currentLevel, and push them into frontierQueue
   val frontierFilter = Module(new FrontierFilter())
-  val frontierQueue = Module(new Queue(UInt(width=32), entries=16))
+  val frontierQueue = Module(new Queue(UInt(width=32), entries=32))
   val frontierInds = frontierQueue.io.deq
   frontierFilter.io.start <> io.start
   frontierFilter.io.distVecCount <> io.distVecCount
@@ -136,7 +136,7 @@ class SparseFrontierBackend() extends Module {
   io.aximm32.readAddr.bits.burst := UInt(1) // incrementing burst
 
   // the size of the next dist.vec burst -- do large bursts when possible
-  val maxDistVecBurstSize = Mux(regDistVecElemsLeft >= UInt(8), UInt(8), UInt(1))
+  val maxDistVecBurstSize = Mux(regDistVecElemsLeft >= UInt(2), UInt(2), UInt(1))
   val distVecFinished = (regDistVecElemsLeft === UInt(0))
 
   val distVecReqID = 0
@@ -156,7 +156,7 @@ class SparseFrontierBackend() extends Module {
       }
 
       is(sReqDistVec) {
-        when(distVecFinished) {
+        when(distVecFinished || !throttler.io.canProceedT0) {
           regState := sFetchIndex
         } .otherwise {
           // set up distance vector read request
@@ -176,42 +176,44 @@ class SparseFrontierBackend() extends Module {
       }
 
       is(sFetchIndex) {
-        // fetch an index from the frontier queue, if there is one waiting
-        frontierInds.ready := Bool(true)
-        // each frontier index is 4 bytes -- multiply before registering
-        regFrontierIndex := frontierInds.bits * UInt(4)
+        // don't pull of frontier unless we can issue its request
+        when(!throttler.io.canProceedT1) { regState := sCheckFinished}
+        .otherwise {
+          // fetch an index from the frontier queue, if there is one waiting
+          frontierInds.ready := Bool(true)
+          // each frontier index is 4 bytes -- multiply before registering
+          regFrontierIndex := frontierInds.bits * UInt(4)
 
-        when(frontierInds.valid) {
-          // increment the frontier size
-          regFrontierSize := regFrontierSize + UInt(1)
-          // request this frontier index' col ptr
-          regState := sReqColPtrs
-        } .otherwise {
-          // no frontier indices waiting
-          regState := sCheckFinished
+          when(frontierInds.valid) {
+            // increment the frontier size
+            regFrontierSize := regFrontierSize + UInt(1)
+            // request this frontier index' col ptr
+            regState := sReqColPtrs
+          } .otherwise {
+            // no frontier indices waiting
+            regState := sCheckFinished
+          }
         }
       }
 
       is(sReqColPtrs) {
-        // set up colptr read request
-        io.aximm32.readAddr.valid := Bool(true)
-        io.aximm32.readAddr.bits.addr := regColPtrBase + regFrontierIndex
-        // the colptr read is always 2 beats long (start, end)
-        io.aximm32.readAddr.bits.len := UInt(1)
-        io.aximm32.readAddr.bits.id := UInt(colPtrReqID)
+          // set up colptr read request
+          io.aximm32.readAddr.valid := Bool(true)
+          io.aximm32.readAddr.bits.addr := regColPtrBase + regFrontierIndex
+          // the colptr read is always 2 beats long (start, end)
+          io.aximm32.readAddr.bits.len := UInt(1)
+          io.aximm32.readAddr.bits.id := UInt(colPtrReqID)
 
-        when(io.aximm32.readAddr.ready) {
-          regState := sCheckFinished
-        }
+          when(io.aximm32.readAddr.ready) {
+            regState := sCheckFinished
+          }
       }
 
       is(sCheckFinished) {
-        // by default, go back to requesting the distance vector
-        regState := sReqDistVec
-
         val allRequested = (regFrontierSize === neighborFetcher.io.colCount)
-
-        when(distVecFinished &&  allRequested) {
+        when(!distVecFinished) {
+          regState := sReqDistVec
+        }.elsewhen(distVecFinished &&  allRequested) {
           regState := sFinished
         }
       }
