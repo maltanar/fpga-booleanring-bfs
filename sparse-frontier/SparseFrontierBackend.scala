@@ -15,8 +15,11 @@ class SparseFrontierBackend() extends Module {
     val frontierSize = UInt(OUTPUT, 32)
     val nzCount = UInt(OUTPUT, 32)
 
-    val throttleFIFOSize = UInt(INPUT, 32)
-    val throttleFIFODataCount = UInt(INPUT, 32)
+    val thresholdT0 = UInt(INPUT, 32)
+    val dataCountT0 = UInt(INPUT, 32)
+
+    val thresholdT1 = UInt(INPUT, 32)
+    val dataCountT1 = UInt(INPUT, 32)
 
     // control and status
     val state = UInt(OUTPUT, 32)
@@ -70,15 +73,10 @@ class SparseFrontierBackend() extends Module {
 
   // instantiate the throttler
   val throttler = Module(new BackendThrottler())
-  throttler.io.fifoSize <> io.throttleFIFOSize
-  throttler.io.fifoDataCount <> io.throttleFIFODataCount
-  // monitor the AXI address and data transactions with the throttler
-  val reqValid = (io.aximm32.readAddr.valid && io.aximm32.readAddr.ready)
-  val rspValid = (io.aximm32.readData.valid && io.aximm32.readData.ready)
-  throttler.io.addRequest.valid := reqValid
-  throttler.io.addRequest.bits := io.aximm32.readAddr.bits.id(0)
-  throttler.io.addResponse.valid := rspValid && io.aximm32.readData.bits.last
-  throttler.io.addResponse.bits := io.aximm32.readData.bits.id(0)
+  throttler.io.thresholdT0 <> io.thresholdT0
+  throttler.io.dataCountT0 <> io.dataCountT0
+  throttler.io.thresholdT1 <> io.thresholdT1
+  throttler.io.dataCountT1 <> io.dataCountT1
 
   // instantiate the frontier filter -- pick out indices in dist.vec that
   // have value == currentLevel, and push them into frontierQueue
@@ -176,7 +174,7 @@ class SparseFrontierBackend() extends Module {
       }
 
       is(sFetchIndex) {
-        // don't pull of frontier unless we can issue its request
+        // don't pull off frontier unless we can issue its request
         when(!throttler.io.canProceedT1) { regState := sCheckFinished}
         .otherwise {
           // fetch an index from the frontier queue, if there is one waiting
@@ -210,11 +208,21 @@ class SparseFrontierBackend() extends Module {
       }
 
       is(sCheckFinished) {
-        val allRequested = (regFrontierSize === neighborFetcher.io.colCount)
-        when(!distVecFinished) {
-          regState := sReqDistVec
-        }.elsewhen(distVecFinished &&  allRequested) {
+        val allRequested = (regFrontierSize === frontierFilter.io.frontierSize)
+        val allFinished = (regFrontierSize === neighborFetcher.io.colCount)
+
+        when(distVecFinished &&  allFinished) {
+          // all done!
           regState := sFinished
+        } .elsewhen(distVecFinished && allRequested) {
+          // just waiting on the NeighborFetcher to finish, stay here
+          regState := sCheckFinished
+        } .elsewhen(distVecFinished && !allRequested) {
+          // distvec finished, but more colptrs to request
+          regState := sFetchIndex
+        } .otherwise {
+          // go back to sReqDistVec
+          regState := sReqDistVec
         }
       }
 
