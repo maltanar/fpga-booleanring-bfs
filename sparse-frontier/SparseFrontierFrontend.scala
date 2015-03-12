@@ -27,8 +27,17 @@ class SparseFrontierFrontend(memDepthWords: Int) extends Module {
     val resMemPort2 = new AsymMemReadWritePort(1, 32, addrBits)
 
     // output for dumping the result vector
-    val resultVector = new AXIStreamMasterIF(UInt(width = 64))
+    val resultVectorOut = new AXIStreamMasterIF(UInt(width = 64))
   }
+
+  // instantiate the ResultDumper
+  val resDump = Module(new ResultDumper(memDepthWords))
+  // start will be set by FSM when it's time
+  val regStartDump = Reg(init=Bool(false))
+  resDump.io.start := regStartDump
+  resDump.io.readData1 := io.resMemPort1.dataRead
+  resDump.io.readData2 := io.resMemPort2.dataRead
+  io.resultVectorOut <> resDump.io.resultVectorOut
 
   // break out control bits
   val enableBRAMReset = io.ctrl(2)
@@ -43,8 +52,6 @@ class SparseFrontierFrontend(memDepthWords: Int) extends Module {
   val regRowIndsLeftInCol = Reg(init=UInt(0,31))
   val regAligned = Reg(init=UInt(0))
 
-  val rowIndUpper = io.rowIndData.bits(63, 32)
-  val rowIndLower = io.rowIndData.bits(31, 0)
 
   val sIdle :: sResetAll :: sDump :: sFetchMeta :: sProcessInds :: sFinished :: Nil = Enum(UInt(), 6)
   val regState = Reg(init=UInt(sIdle))
@@ -54,9 +61,20 @@ class SparseFrontierFrontend(memDepthWords: Int) extends Module {
   io.processedNZCount := regNZCount
   io.rowIndData.ready := Bool(false)
   io.rowIndMetadata.ready := Bool(false)
-  io.resultVector.valid := Bool(false)
-  io.resultVector.bits := UInt(0)
   io.frontierSize := regFrontierSize
+
+  // result vector memory ports
+  // port 1 uses the lower rowInd
+  // port 2 uses the upper rowInd
+  val rowIndUpper = io.rowIndData.bits(63, 32)
+  val rowIndLower = io.rowIndData.bits(31, 0)
+  // multiplex address to result BRAM depending on value of result dump register
+  io.resMemPort1.addr := Mux(regStartDump, resDump.io.readAddr1, rowIndLower)
+  io.resMemPort1.writeEn := Bool(false)
+  io.resMemPort1.dataWrite := UInt(0)
+  io.resMemPort2.addr := Mux(regStartDump, resDump.io.readAddr2, rowIndUpper)
+  io.resMemPort2.writeEn := Bool(false)
+  io.resMemPort2.dataWrite := UInt(0)
 
   // default outputs to result memory
   io.resMemPort1.addr := UInt(0)
@@ -70,6 +88,7 @@ class SparseFrontierFrontend(memDepthWords: Int) extends Module {
       is(sIdle) {
         regResetAddr := UInt(0)
         regRowCount := io.rowCount
+        regStartDump := Bool(false)
 
         when(startAccel) {
           // BRAM reset and dump operations take priority
@@ -77,6 +96,7 @@ class SparseFrontierFrontend(memDepthWords: Int) extends Module {
             regState := sResetAll
           } .elsewhen(enableBRAMDump) {
             regState := sDump
+            regStartDump := Bool(true)
           } .otherwise {
             regNZCount := UInt(0)
             regFrontierSize := UInt(0)
@@ -90,6 +110,7 @@ class SparseFrontierFrontend(memDepthWords: Int) extends Module {
         when(regResetAddr === regRowCount-UInt(1)) { regState := sFinished}
         .otherwise {
           // default write data is 0, no need to set that
+          // override write addresses
           io.resMemPort1.addr := regResetAddr
           io.resMemPort2.addr := regResetAddr + UInt(1)
           io.resMemPort1.writeEn := Bool(true)
@@ -99,8 +120,11 @@ class SparseFrontierFrontend(memDepthWords: Int) extends Module {
       }
 
       is(sDump) {
-        // TODO implement result vector dump
-        regState := sIdle
+        // wait until ResultDumper completes
+        when(resDump.io.finished) {
+          regState := sFinished
+          regStartDump := Bool(false)
+        }
       }
 
       is(sFetchMeta) {
@@ -124,9 +148,7 @@ class SparseFrontierFrontend(memDepthWords: Int) extends Module {
         // only write 1s in this state
         io.resMemPort1.dataWrite := UInt(1)
         io.resMemPort2.dataWrite := UInt(1)
-        // port2 is assigned the upper word, port1 the lower word
-        io.resMemPort2.addr := rowIndUpper
-        io.resMemPort1.addr := rowIndLower
+        // addresses are already assigned by default
         // write enables are dependent on state:
         when(noElementsLeft) { regState := sFetchMeta}
         .otherwise {
