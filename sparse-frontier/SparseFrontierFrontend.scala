@@ -29,15 +29,10 @@ class SparseFrontierFrontend(memDepthWords: Int) extends Module {
     // output for dumping the result vector
     val resultVectorOut = new AXIStreamMasterIF(UInt(width = 64))
   }
-
-  // instantiate the ResultDumper
-  val resDump = Module(new ResultDumper(memDepthWords))
-  // start will be set by FSM when it's time
-  val regStartDump = Reg(init=Bool(false))
-  resDump.io.start := regStartDump
-  resDump.io.readData1 := io.resMemPort1.dataRead
-  resDump.io.readData2 := io.resMemPort2.dataRead
-  io.resultVectorOut <> resDump.io.resultVectorOut
+  // rename interfaces for Vivado
+  io.rowIndData.renameSignals("rowIndData")
+  io.rowIndMetadata.renameSignals("rowIndMetadata")
+  io.resultVectorOut.renameSignals("resultVectorOut")
 
   // break out control bits
   val enableBRAMReset = io.ctrl(2)
@@ -55,6 +50,18 @@ class SparseFrontierFrontend(memDepthWords: Int) extends Module {
 
   val sIdle :: sResetAll :: sDump :: sFetchMeta :: sProcessInds :: sFinished :: Nil = Enum(UInt(), 6)
   val regState = Reg(init=UInt(sIdle))
+
+  // instantiate the ResultDumper
+  val resDump = Module(new ResultDumper(memDepthWords))
+  // start will be set by FSM when it's time
+  val regStartDump = Reg(init=Bool(false))
+  resDump.io.start := regStartDump
+  resDump.io.readData1 := io.resMemPort1.dataRead
+  resDump.io.readData2 := io.resMemPort2.dataRead
+  io.resultVectorOut <> resDump.io.resultVectorOut
+  // resDump input is in terms of 64-bit words -- divide by 64,
+  // equivalent to right shifting 6 places
+  resDump.io.wordCount := regRowCount(21,6)
 
   // default outputs
   io.state := regState
