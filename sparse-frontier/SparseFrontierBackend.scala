@@ -135,7 +135,7 @@ class SparseFrontierBackend() extends Module {
 
   // the size of the next dist.vec burst -- do large bursts when possible
   val maxDistVecBurstSize = Mux(regDistVecElemsLeft >= UInt(2), UInt(2), UInt(1))
-  val distVecFinished = (regDistVecElemsLeft === UInt(0))
+  val distVecNoReqsLeft = (regDistVecElemsLeft === UInt(0))
 
   val distVecReqID = 0
   val colPtrReqID = 1
@@ -154,7 +154,7 @@ class SparseFrontierBackend() extends Module {
       }
 
       is(sReqDistVec) {
-        when(distVecFinished || !throttler.io.canProceedT0) {
+        when(distVecNoReqsLeft || !throttler.io.canProceedT0) {
           regState := sFetchIndex
         } .otherwise {
           // set up distance vector read request
@@ -208,6 +208,7 @@ class SparseFrontierBackend() extends Module {
       }
 
       is(sCheckFinished) {
+        val distVecFinished = frontierFilter.io.finished
         val allRequested = (regFrontierSize === frontierFilter.io.frontierSize)
         val allFinished = (regFrontierSize === neighborFetcher.io.colCount)
 
