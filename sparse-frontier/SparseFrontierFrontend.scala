@@ -83,14 +83,6 @@ class SparseFrontierFrontend(memDepthWords: Int) extends Module {
   io.resMemPort2.writeEn := Bool(false)
   io.resMemPort2.dataWrite := UInt(0)
 
-  // default outputs to result memory
-  io.resMemPort1.addr := UInt(0)
-  io.resMemPort1.dataWrite := UInt(0)
-  io.resMemPort1.writeEn := Bool(false)
-  io.resMemPort2.addr := UInt(0)
-  io.resMemPort2.dataWrite := UInt(0)
-  io.resMemPort2.writeEn := Bool(false)
-
   switch(regState) {
       is(sIdle) {
         regResetAddr := UInt(0)
@@ -114,7 +106,7 @@ class SparseFrontierFrontend(memDepthWords: Int) extends Module {
 
       is(sResetAll) {
         // write zeroes to all BRAM locations (up to rowCount)
-        when(regResetAddr === regRowCount-UInt(1)) { regState := sFinished}
+        when(regResetAddr >= regRowCount-UInt(1)) { regState := sFinished}
         .otherwise {
           // default write data is 0, no need to set that
           // override write addresses
@@ -122,7 +114,7 @@ class SparseFrontierFrontend(memDepthWords: Int) extends Module {
           io.resMemPort2.addr := regResetAddr + UInt(1)
           io.resMemPort1.writeEn := Bool(true)
           io.resMemPort2.writeEn := Bool(true)
-          regResetAddr := regResetAddr + UInt(1)
+          regResetAddr := regResetAddr + UInt(2)
         }
       }
 
