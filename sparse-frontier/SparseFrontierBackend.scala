@@ -206,6 +206,20 @@ class SparseFrontierBackend() extends Module {
         // completed
         when(dv2iv.io.finished) {
           regState := sFinished
+        } .elsewhen (!distVecNoReqsLeft && throttler.io.canProceedT0) {
+          // set up distance vector read request
+          io.aximm32.readAddr.valid := Bool(true)
+          io.aximm32.readAddr.bits.addr := regDistVecPtr
+          // the -1 comes from the AXI definition of the burst length param
+          io.aximm32.readAddr.bits.len := maxDistVecBurstSize - UInt(1)
+          io.aximm32.readAddr.bits.id := UInt(distVecReqID)
+
+          when(io.aximm32.readAddr.ready) {
+            // request acknowledged -- increment pointer, decrement counter
+            regDistVecPtr := regDistVecPtr + UInt(4) * maxDistVecBurstSize
+            regDistVecElemsLeft := regDistVecElemsLeft - maxDistVecBurstSize
+            // stay in same state
+          }
         }
       }
 

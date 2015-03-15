@@ -18,6 +18,7 @@ class DistVecToInpVec(outputWidthBits: Int) extends Module {
   }
 
   val regOutput = Reg(init = UInt(0, outputWidthBits))
+  val regMask = Reg(init = UInt(1, outputWidthBits))
   val regOutBitCount = Reg(init = UInt(0, 32))
   val regDistVecElemsLeft = Reg(init = UInt(0, 32))
 
@@ -38,6 +39,7 @@ class DistVecToInpVec(outputWidthBits: Int) extends Module {
       is(sIdle) {
         regOutput := UInt(0)
         regOutBitCount := UInt(0)
+        regMask := UInt(1)
         regDistVecElemsLeft := io.distVecCount
         when(io.start) {
           regState := sPullInput
@@ -53,9 +55,10 @@ class DistVecToInpVec(outputWidthBits: Int) extends Module {
           io.distVecInput.ready := Bool(true)
 
           when(io.distVecInput.valid) {
-            regOutput(regOutBitCount) := isVisited
+            when(isVisited) {regOutput := regOutput | regMask}
             regDistVecElemsLeft := regDistVecElemsLeft - UInt(1)
             regOutBitCount := regOutBitCount + UInt(1)
+            regMask := regMask << UInt(1)
           }
         }
       }
@@ -66,6 +69,7 @@ class DistVecToInpVec(outputWidthBits: Int) extends Module {
         when(io.inpVecOutput.ready) {
           regOutBitCount := UInt(0)
           regOutput := UInt(0)
+          regMask := UInt(1)
           regState := Mux(inputFinished, sFinished, sPullInput)
         }
       }
