@@ -44,6 +44,9 @@ class SparseFrontierBackend() extends Module {
     val rowIndsData = Decoupled(new AXIReadData(64, 2))
     val rowIndsMetadata = new AXIStreamMasterIF(UInt(width = 32))
 
+    // output to level generator: input vector
+    val inpVecOutput = new AXIStreamMasterIF(UInt(width = 64))
+
   }
 
   // rename interfaces for Vivado IP integrator
@@ -52,6 +55,7 @@ class SparseFrontierBackend() extends Module {
   io.distVecIn.renameSignals("distVecIn")
   io.rowStartEnd.renameSignals("rowStartEnd")
   io.rowIndsMetadata.renameSignals("rowIndsMetadata")
+  io.inpVecOutput.renameSignals("inpVecOutput")
   var ifName = "readData32"
   io.readData32.bits.id.setName(ifName + "_TDEST")
   io.readData32.bits.data.setName(ifName + "_TDATA")
@@ -78,6 +82,16 @@ class SparseFrontierBackend() extends Module {
   val regularModeStart = startSignal & !enableLevelGen
   val levelGenStart = startSignal & enableLevelGen
 
+  // instantiate the DistVecToInpVec
+  val dv2iv = Module(new DistVecToInpVec(64))
+  dv2iv.io.inpVecOutput <> io.inpVecOutput
+  dv2iv.io.distVecCount <> io.distVecCount
+  dv2iv.io.unvisitedValue := UInt("hFFFFFFFF")
+  dv2iv.io.start := levelGenStart
+  // the distVecInput is sourced from the FIFO
+
+  // TODO instantiate the DistVecUpdate -- need to convert to regular AXI
+
   // instantiate the throttler
   val throttler = Module(new BackendThrottler())
   throttler.io.thresholdT0 <> io.thresholdT0
@@ -93,8 +107,16 @@ class SparseFrontierBackend() extends Module {
   frontierFilter.io.start := regularModeStart
   frontierFilter.io.distVecCount <> io.distVecCount
   frontierFilter.io.currentLevel <> io.currentLevel
-  frontierFilter.io.distVecIn <> io.distVecIn
   frontierFilter.io.frontierOut <> frontierQueue.io.enq
+
+  // the dist.vec FIFO is multiplexed:
+  // - during regular operation, the FrontierFilter drains it
+  // - during level gen, the DistVecToInpVec drains it
+  val distVecMux = Module(new AXIStreamOutputMux(32))
+  distVecMux.io.sel := enableLevelGen
+  distVecMux.io.strm <> io.distVecIn
+  distVecMux.io.out0 <> frontierFilter.io.distVecIn
+  distVecMux.io.out1 <> dv2iv.io.distVecInput
 
   // instantiate the NeighborFetcher -- drain frontierQueue and generate
   // rowIndsData and rowIndsMetadata
@@ -114,7 +136,7 @@ class SparseFrontierBackend() extends Module {
   val regFrontierSize = Reg(init = UInt(0, 32))
 
   // FSM for control -- dist.vec and col.ptr requests
-  val sIdle :: sReqDistVec :: sFetchIndex :: sReqColPtrs :: sCheckFinished :: sFinished :: Nil = Enum(UInt(), 6)
+  val sIdle :: sReqDistVec :: sFetchIndex :: sReqColPtrs :: sCheckFinished :: sFinished :: sLevelGen :: Nil = Enum(UInt(), 7)
   val regState = Reg(init = UInt(sIdle))
 
   io.state := regState
@@ -154,10 +176,16 @@ class SparseFrontierBackend() extends Module {
         regDistVecPtr := io.distVecBase
         regColPtrBase := io.colPtrBase
 
-        when(regularModeStart) {
+        when(levelGenStart) {
+          regState := sLevelGen
+        }.elsewhen(regularModeStart) {
           regFrontierSize := UInt(0)
           regState := sReqDistVec
         }
+      }
+
+      is(sLevelGen) {
+        // TODO
       }
 
       is(sReqDistVec) {
