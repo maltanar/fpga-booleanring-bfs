@@ -1,10 +1,10 @@
-package BFSBackend
+package BFSSparseFrontier
 
 import Chisel._
 import Literal._
 import Node._
 import AXIStreamDefs._
-import AXILiteDefs._
+import AXIDefs._
 import Constants._
 
 class DistVecUpdater() extends Module {
@@ -20,10 +20,10 @@ class DistVecUpdater() extends Module {
     // address input for dist. vec. updates
     val distVecInds = new AXIStreamSlaveIF(UInt(width = addrBits))
 
-    // AXI lite MM outputs
-    val writeAddrOut   = Decoupled(new AXILiteAddress(addrBits))
-    val writeDataOut   = Decoupled(new AXILiteWriteData(addrBits))
-    val writeRespIn   = Decoupled(UInt(width = 2)).flip
+    // AXI MM write channel outputs
+    val writeAddrOut   = Decoupled(new AXIAddress(addrBits, idBits))
+    val writeDataOut   = Decoupled(new AXIWriteData(addrBits))
+    val writeRespIn   = Decoupled(new AXIWriteResponse(idBits)).flip
   }
 
   val regDistVecUpdateCount = Reg(init=UInt(0,32))
@@ -40,15 +40,24 @@ class DistVecUpdater() extends Module {
   // write data in and response in channels
   io.distVecInds.ready := Bool(false)
   io.writeRespIn.ready := Bool(false)
-  // write address channel
+  // write address channel - the parts that change
   io.writeAddrOut.valid := Bool(false)
   io.writeAddrOut.bits.addr := regDistVecUpdateAddr
+  // write address channel - the parts that do not change
   io.writeAddrOut.bits.prot := UInt(0)
+  io.writeAddrOut.bits.len := UInt(0) // single beat write
+  io.writeAddrOut.bits.id := UInt(0) // constant ID
+  io.writeAddrOut.bits.qos := UInt(0)
+  io.writeAddrOut.bits.lock := Bool(false)
+  io.writeAddrOut.bits.cache := UInt("b0010")
+  io.writeAddrOut.bits.size := UInt(log2Up((32/8)-1)) // full-datawidth
+  io.writeAddrOut.bits.burst := UInt(1) // incrementing burst
 
   // write data channel
   io.writeDataOut.valid := Bool(false)
   io.writeDataOut.bits.data := regCurrentLevel
   io.writeDataOut.bits.strb := UInt("b1111")  // all bytelanes valid
+  io.writeDataOut.bits.last := Bool(true) // always true for single beat
 
   switch(regState) {
       is(sIdle) {

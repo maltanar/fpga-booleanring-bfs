@@ -1,9 +1,9 @@
-package BFSBackend
+package BFSSparseFrontier
 
 trait BackendConstants {
   val addrBits = 32           // width of address for AXI master
-  /*
   val idBits = 2              // number of ID bits for AXI data bus
+  /*
   val mmapDataBits = 64       // width of AXI data bus
   val colLenDataBits = 32     // width of each column length
   val rowIndDataBits = 32     // width of each row index
