@@ -3,6 +3,7 @@ package BFSSparseFrontier
 import Chisel._
 import AXIDefs._
 import AXIStreamDefs._
+import Constants._
 
 class SparseFrontierBackend() extends Module {
   val io = new Bundle {
@@ -14,6 +15,7 @@ class SparseFrontierBackend() extends Module {
     val rowIndBase = UInt(INPUT, 32)
     val frontierSize = UInt(OUTPUT, 32)
     val nzCount = UInt(OUTPUT, 32)
+    val distVecWriteCount = UInt(OUTPUT, 32)
 
     val thresholdT0 = UInt(INPUT, 32)
     val dataCountT0 = UInt(INPUT, 32)
@@ -28,12 +30,12 @@ class SparseFrontierBackend() extends Module {
     val ctrl = UInt(INPUT, 32)
 
     // for smaller requests: distVec, colPtr
-    val aximm32 = new AXIMasterReadOnlyIF(32, 32, 2)
+    val aximm32 = new AXIMasterIF(32, 32, idBits)
     // for rowind requests
-    val aximm64 = new AXIMasterReadOnlyIF(32, 64, 2)
+    val aximm64 = new AXIMasterReadOnlyIF(32, 64, idBits)
 
     // decoupled channel to push out read data to AXI stream switch
-    val readData32 = Decoupled(new AXIReadData(32, 2))
+    val readData32 = Decoupled(new AXIReadData(32, idBits))
 
     // loopback from readData32: dist.vec elements
     val distVecIn = new AXIStreamSlaveIF(UInt(width = 32))
@@ -41,9 +43,11 @@ class SparseFrontierBackend() extends Module {
     val rowStartEnd = new AXIStreamSlaveIF(UInt(width = 32))
 
     // output to frontend: row index data and metadata
-    val rowIndsData = Decoupled(new AXIReadData(64, 2))
+    val rowIndsData = Decoupled(new AXIReadData(64, idBits))
     val rowIndsMetadata = new AXIStreamMasterIF(UInt(width = 32))
 
+    // input from level generator: dist.vec updates
+    val distVecUpdInds = new AXIStreamSlaveIF(UInt(width = 32))
     // output to level generator: input vector
     val inpVecOutput = new AXIStreamMasterIF(UInt(width = 64))
 
@@ -56,6 +60,7 @@ class SparseFrontierBackend() extends Module {
   io.rowStartEnd.renameSignals("rowStartEnd")
   io.rowIndsMetadata.renameSignals("rowIndsMetadata")
   io.inpVecOutput.renameSignals("inpVecOutput")
+  io.distVecUpdInds.renameSignals("distVecUpdInds")
   var ifName = "readData32"
   io.readData32.bits.id.setName(ifName + "_TDEST")
   io.readData32.bits.data.setName(ifName + "_TDATA")
@@ -81,6 +86,18 @@ class SparseFrontierBackend() extends Module {
 
   val regularModeStart = startSignal & !enableLevelGen
   val levelGenStart = startSignal & enableLevelGen
+
+  // instantiate the DistVecUpdate
+  val dvupd = Module(new DistVecUpdater())
+  dvupd.io.start := levelGenStart
+  dvupd.io.distVecBase <> io.distVecBase
+  dvupd.io.currentLevel <> io.currentLevel
+  dvupd.io.distVecUpdateCount <> io.distVecWriteCount
+  dvupd.io.distVecInds <> io.distVecUpdInds
+  // source the aximm32 write channel from dvupd
+  dvupd.io.writeAddrOut <> io.aximm32.writeAddr
+  dvupd.io.writeDataOut <> io.aximm32.writeData
+  dvupd.io.writeRespIn <> io.aximm32.writeResp
 
   // instantiate the DistVecToInpVec
   val dv2iv = Module(new DistVecToInpVec(64))
@@ -185,7 +202,11 @@ class SparseFrontierBackend() extends Module {
       }
 
       is(sLevelGen) {
-        // TODO
+        // TODO real "finished" here happens when all distVec updates are
+        // completed
+        when(dv2iv.io.finished) {
+          regState := sFinished
+        }
       }
 
       is(sReqDistVec) {
