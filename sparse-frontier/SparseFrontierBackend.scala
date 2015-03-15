@@ -25,7 +25,7 @@ class SparseFrontierBackend() extends Module {
     val state = UInt(OUTPUT, 32)
     val ngState = UInt(OUTPUT, 32)
     val ngColCount = UInt(OUTPUT, 32)
-    val start = Bool(INPUT)
+    val ctrl = UInt(INPUT, 32)
 
     // for smaller requests: distVec, colPtr
     val aximm32 = new AXIMasterReadOnlyIF(32, 32, 2)
@@ -71,6 +71,13 @@ class SparseFrontierBackend() extends Module {
   io.readData32 <> io.aximm32.readData
   io.rowIndsData <> io.aximm64.readData
 
+  // break out control signals
+  val startSignal = io.ctrl(0)
+  val enableLevelGen = io.ctrl(1)
+
+  val regularModeStart = startSignal & !enableLevelGen
+  val levelGenStart = startSignal & enableLevelGen
+
   // instantiate the throttler
   val throttler = Module(new BackendThrottler())
   throttler.io.thresholdT0 <> io.thresholdT0
@@ -83,7 +90,7 @@ class SparseFrontierBackend() extends Module {
   val frontierFilter = Module(new FrontierFilter())
   val frontierQueue = Module(new Queue(UInt(width=32), entries=32))
   val frontierInds = frontierQueue.io.deq
-  frontierFilter.io.start <> io.start
+  frontierFilter.io.start := regularModeStart
   frontierFilter.io.distVecCount <> io.distVecCount
   frontierFilter.io.currentLevel <> io.currentLevel
   frontierFilter.io.distVecIn <> io.distVecIn
@@ -93,7 +100,7 @@ class SparseFrontierBackend() extends Module {
   // rowIndsData and rowIndsMetadata
   val neighborFetcher = Module(new NeighborFetcher())
   neighborFetcher.io.rowIndBase <> io.rowIndBase
-  neighborFetcher.io.start <> io.start
+  neighborFetcher.io.start := regularModeStart
   neighborFetcher.io.nzCount <> io.nzCount
   neighborFetcher.io.rowIndReadReqs <> io.aximm64.readAddr
   neighborFetcher.io.rowStartEndIn <> io.rowStartEnd
@@ -147,7 +154,7 @@ class SparseFrontierBackend() extends Module {
         regDistVecPtr := io.distVecBase
         regColPtrBase := io.colPtrBase
 
-        when(io.start) {
+        when(regularModeStart) {
           regFrontierSize := UInt(0)
           regState := sReqDistVec
         }
@@ -229,7 +236,7 @@ class SparseFrontierBackend() extends Module {
 
       is(sFinished) {
         // finished -- wait for !start to go back to idle
-        when(!io.start) {
+        when(!startSignal) {
           regState := sIdle
         }
       }
