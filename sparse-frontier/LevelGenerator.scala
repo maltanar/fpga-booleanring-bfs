@@ -26,6 +26,11 @@ class LevelGeneratorInterface(dataWidthBits: Int) extends Bundle {
 class LevelGenerator(dataWidthBits: Int) extends Module {
   val io = new LevelGeneratorInterface(dataWidthBits)
 
+  io.oldData.renameSignals("oldData")
+  io.newData.renameSignals("newData")
+  io.writeIndices.renameSignals("writeIndices")
+  io.newDataCopy.renameSignals("newDataCopy")
+
   // internal registers to keep config and state
   val regBitCount = Reg(init = UInt(0, 32))
   val regWriteIndex = Reg(init = UInt(0, 32))
