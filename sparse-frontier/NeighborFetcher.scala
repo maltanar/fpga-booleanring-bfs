@@ -112,18 +112,16 @@ class NeighborFetcher() extends Module {
       }
 
       is(sPushMetadata) {
-        // do not consider empty rows -- no request, go back
-        when(regElementsLeft === UInt(0)) {
-          regState := sWaitPtrStart
-        } .otherwise {
-          // metadata should be now ready to push
-          // metadata consists of isAligned and length of column
-          io.rowIndsMetadata.valid := Bool(true)
+        val isEmptyCol = (regElementsLeft === UInt(0))
+        // metadata should be now ready to push (even for an empty column)
+        // metadata consists of isAligned and length of column
+        io.rowIndsMetadata.valid := Bool(true)
 
-          // wait until metadata accepted before proceeding
-          when(io.rowIndsMetadata.ready) {
-            regState := sBuildReq
-          }
+        // wait until metadata accepted before proceeding
+        when(io.rowIndsMetadata.ready) {
+          // if column is empty, get a new one. but still important to
+          // push its metadata to signal the frontend
+          regState := Mux(isEmptyCol, sWaitPtrStart, sBuildReq)
         }
       }
 
