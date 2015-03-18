@@ -12,7 +12,7 @@ class DistVecUpdater() extends Module {
     // control interface
     val start = Bool(INPUT)
     val distVecBase = UInt(INPUT, 32)
-    val currentLevel = UInt(INPUT, 32)
+    val currentLevel = UInt(INPUT, 8)
 
     // status output
     val distVecUpdateCount = UInt(OUTPUT, 32)
@@ -30,6 +30,7 @@ class DistVecUpdater() extends Module {
   val regDistVecBase = Reg(init=UInt(0,32))
   val regDistVecUpdateAddr = Reg(init=UInt(0,32))
   val regCurrentLevel = Reg(init=UInt(0,32))
+  val regByteStrobe = Reg(init=UInt(0, 4))
 
   val sIdle :: sFetch :: sReq :: sSend :: sWaitResp :: Nil = Enum(UInt(), 5)
   val regState = Reg(init=UInt(sIdle))
@@ -56,13 +57,16 @@ class DistVecUpdater() extends Module {
   // write data channel
   io.writeDataOut.valid := Bool(false)
   io.writeDataOut.bits.data := regCurrentLevel
-  io.writeDataOut.bits.strb := UInt("b1111")  // all bytelanes valid
+  io.writeDataOut.bits.strb := regByteStrobe
   io.writeDataOut.bits.last := Bool(true) // always true for single beat
 
   switch(regState) {
       is(sIdle) {
         regDistVecBase := io.distVecBase
-        regCurrentLevel := io.currentLevel
+        // make currentLevel data available in each byte position - we select a single byte lane
+        // depending on alignment
+        regCurrentLevel := Cat(io.currentLevel, Cat(io.currentLevel, Cat(io.currentLevel, io.currentLevel)))
+        regByteStrobe := UInt(0)
         when (io.start) {
           regDistVecUpdateCount := UInt(0)
           regState := sFetch
@@ -73,7 +77,18 @@ class DistVecUpdater() extends Module {
         // fetch data from input data queue
         io.distVecInds.ready := Bool(true)
         // calculate dv update addr from index
-        regDistVecUpdateAddr := regDistVecBase + UInt(4) * io.distVecInds.bits
+        // use base word address and write strobe lanes to select particular byte
+        regDistVecUpdateAddr := regDistVecBase + UInt(4) * (io.distVecInds.bits >> UInt(2))
+
+        when(io.distVecInds.bits(1,0) === UInt("b00")) {
+          regByteStrobe := UInt("b0001")
+        } .elsewhen(io.distVecInds.bits(1,0) === UInt("b01")) {
+          regByteStrobe := UInt("b0010")
+        } .elsewhen(io.distVecInds.bits(1,0) === UInt("b10")) {
+          regByteStrobe := UInt("b0100")
+        }.elsewhen(io.distVecInds.bits(1,0) === UInt("b11")) {
+          regByteStrobe := UInt("b1000")
+        }
 
         when (!io.start) {
           regState := sIdle

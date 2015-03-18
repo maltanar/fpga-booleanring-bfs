@@ -5,10 +5,10 @@ import Literal._
 import Node._
 import AXIStreamDefs._
 
-class DistVecToInpVec(outputWidthBits: Int) extends Module {
+class DistVecToInpVec(dvSizeBits: Int, outputWidthBits: Int) extends Module {
   val io = new Bundle {
     val distVecCount = UInt(INPUT, 32)
-    val unvisitedValue = UInt(INPUT, 32)
+    val unvisitedValue = UInt(INPUT, dvSizeBits)
 
     val start = Bool(INPUT)
     val finished = Bool(OUTPUT)
@@ -16,6 +16,10 @@ class DistVecToInpVec(outputWidthBits: Int) extends Module {
     val distVecInput = new AXIStreamSlaveIF(UInt(width = 32))
     val inpVecOutput = new AXIStreamMasterIF(UInt(width = outputWidthBits))
   }
+
+  val downsize = Module(new AXIStreamDownsizer(32, dvSizeBits))
+  downsize.io.in <> io.distVecInput
+  val distVecWord = downsize.io.out
 
   val regOutput = Reg(init = UInt(0, outputWidthBits))
   val regMask = Reg(init = UInt(1, outputWidthBits))
@@ -27,11 +31,11 @@ class DistVecToInpVec(outputWidthBits: Int) extends Module {
 
   // default outputs
   io.finished := Bool(false)
-  io.distVecInput.ready := Bool(false)
+  distVecWord.ready := Bool(false)
   io.inpVecOutput.valid := Bool(false)
   io.inpVecOutput.bits:= regOutput
 
-  val isVisited = (io.distVecInput.bits != io.unvisitedValue)
+  val isVisited = (distVecWord.bits != io.unvisitedValue)
   val inputFinished = (regDistVecElemsLeft === UInt(0))
   val readyToFlushOutput = (regOutBitCount === UInt(outputWidthBits))
 
@@ -52,9 +56,9 @@ class DistVecToInpVec(outputWidthBits: Int) extends Module {
             // data -- distVecCount may not be divisable by outWidth
             regState := sPushOutput
         } .otherwise {
-          io.distVecInput.ready := Bool(true)
+          distVecWord.ready := Bool(true)
 
-          when(io.distVecInput.valid) {
+          when(distVecWord.valid) {
             when(isVisited) {regOutput := regOutput | regMask}
             regDistVecElemsLeft := regDistVecElemsLeft - UInt(1)
             regOutBitCount := regOutBitCount + UInt(1)

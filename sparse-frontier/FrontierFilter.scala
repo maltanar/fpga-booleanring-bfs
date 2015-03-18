@@ -4,12 +4,12 @@ import Chisel._
 import AXIDefs._
 import AXIStreamDefs._
 
-class FrontierFilter() extends Module {
+class FrontierFilter(dvSizeBits: Int) extends Module {
   val io = new Bundle {
     val start = Bool(INPUT)
     val finished = Bool(OUTPUT)
     val distVecCount = UInt(INPUT, 32)
-    val currentLevel = UInt(INPUT, 32)
+    val currentLevel = UInt(INPUT, dvSizeBits)
     val frontierSize = UInt(OUTPUT, 32)
 
     // distance vector in, frontier indices out
@@ -18,6 +18,10 @@ class FrontierFilter() extends Module {
   }
   io.distVecIn.renameSignals("distVecIn")
   io.frontierOut.renameSignals("frontierOut")
+
+  val downsize = Module(new AXIStreamDownsizer(32, dvSizeBits))
+  downsize.io.in <> io.distVecIn
+  val distVecWord = downsize.io.out
 
   val regDistVecCount = Reg(init = UInt(0, 32))
   val regDistVecLeft = Reg(init = UInt(0, 32))
@@ -31,7 +35,7 @@ class FrontierFilter() extends Module {
   io.finished := Bool(false)
   io.frontierSize := regFrontierSize
 
-  io.distVecIn.ready := Bool(false)
+  distVecWord.ready := Bool(false)
   io.frontierOut.valid := Bool(false)
   io.frontierOut.bits := regDistVecCount
 
@@ -50,11 +54,11 @@ class FrontierFilter() extends Module {
       is(sPullDV) {
         when(regDistVecLeft === UInt(0)) { regState := sFinished }
         .otherwise {
-          io.distVecIn.ready := Bool(true)
+          distVecWord.ready := Bool(true)
 
-          when(io.distVecIn.valid) {
+          when(distVecWord.valid) {
             regDistVecLeft := regDistVecLeft - UInt(1)
-            when(io.distVecIn.bits === regCurrentLevel) {
+            when(distVecWord.bits === regCurrentLevel) {
               regState := sPushFrontier
             } .otherwise {
               regDistVecCount := regDistVecCount + UInt(1)

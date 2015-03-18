@@ -100,7 +100,7 @@ class SparseFrontierBackend() extends Module {
   dvupd.io.writeRespIn <> io.aximm32.writeResp
 
   // instantiate the DistVecToInpVec
-  val dv2iv = Module(new DistVecToInpVec(64))
+  val dv2iv = Module(new DistVecToInpVec(dvSizeBits=8, outputWidthBits=64))
   dv2iv.io.inpVecOutput <> io.inpVecOutput
   dv2iv.io.distVecCount <> io.distVecCount
   dv2iv.io.unvisitedValue := UInt("hFFFFFFFF")
@@ -118,7 +118,7 @@ class SparseFrontierBackend() extends Module {
 
   // instantiate the frontier filter -- pick out indices in dist.vec that
   // have value == currentLevel, and push them into frontierQueue
-  val frontierFilter = Module(new FrontierFilter())
+  val frontierFilter = Module(new FrontierFilter(dvSizeBits=8))
   val frontierQueue = Module(new Queue(UInt(width=32), entries=32))
   val frontierInds = frontierQueue.io.deq
   frontierFilter.io.start := regularModeStart
