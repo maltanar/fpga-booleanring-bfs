@@ -47,6 +47,7 @@ class DenseToSparse() extends Module {
   val regReadReqsLeft = Reg(init = UInt(0, 32))
   val regReadReqPtr = Reg(init = UInt(0, 32))
   val regWriteReqPtr = Reg(init = UInt(0, 32))
+  val regWriteReqCnt = Reg(init=UInt(0,32))
 
   io.finished := Bool(false)
   io.aximm32.readAddr.valid := Bool(false)
@@ -54,9 +55,9 @@ class DenseToSparse() extends Module {
   io.aximm32.writeResp.ready := !(regState === sIdle)
 
   io.aximm32.readAddr.bits.addr := regReadReqPtr
-  io.aximm32.readAddr.bits.size := UInt(log2Up(32/8)-1)
+  io.aximm32.readAddr.bits.size := UInt(log2Up((32/8)-1))
   io.aximm32.readAddr.bits.len := UInt(0)
-  io.aximm32.readAddr.bits.burst := UInt(0)
+  io.aximm32.readAddr.bits.burst := UInt(1)
   io.aximm32.readAddr.bits.id := UInt(0)
   io.aximm32.readAddr.bits.lock := Bool(false)
   io.aximm32.readAddr.bits.cache := UInt("b0010")
@@ -64,9 +65,9 @@ class DenseToSparse() extends Module {
   io.aximm32.readAddr.bits.qos := UInt(0)
 
   io.aximm32.writeAddr.bits.addr := regWriteReqPtr
-  io.aximm32.writeAddr.bits.size := UInt(log2Up(32/8)-1)
+  io.aximm32.writeAddr.bits.size := UInt(log2Up((32/8)-1))
   io.aximm32.writeAddr.bits.len := UInt(0)
-  io.aximm32.writeAddr.bits.burst := UInt(0)
+  io.aximm32.writeAddr.bits.burst := UInt(1)
   io.aximm32.writeAddr.bits.id := UInt(0)
   io.aximm32.writeAddr.bits.lock := Bool(false)
   io.aximm32.writeAddr.bits.cache := UInt("b0010")
@@ -82,6 +83,7 @@ class DenseToSparse() extends Module {
           regReadReqsLeft := io.denseCount
           regReadReqPtr := io.denseBasePtr
           regWriteReqPtr := io.sparseBasePtr
+          regWriteReqCnt := UInt(0)
           regState := sRead
         }
       }
@@ -96,7 +98,7 @@ class DenseToSparse() extends Module {
           // issue read request
           val burstLen = Mux(regReadReqsLeft < UInt(8), UInt(1), UInt(8))
           // the -1 here is defined by the protocol
-          io.aximm32.readAddr.bits.burst := burstLen - UInt(1)
+          io.aximm32.readAddr.bits.len := burstLen - UInt(1)
           io.aximm32.readAddr.valid := Bool(true)
 
           when(io.aximm32.readAddr.ready) {
@@ -108,16 +110,22 @@ class DenseToSparse() extends Module {
       }
 
       is(sWrite) {
-        val writeIndsEmpty = (sparseQueue.io.count === UInt(0))
+        //val writeIndsEmpty = (sparseQueue.io.count === UInt(0))
         val filterFinished = (frontierFilter.io.finished)
-        when(writeIndsEmpty && filterFinished) { regState := sFinished}
-        .elsewhen(!writeIndsEmpty) {
+        val allWritten = (regWriteReqCnt === frontierFilter.io.frontierSize)
+
+        when(allWritten && filterFinished) { regState := sFinished}
+        .elsewhen(!allWritten) {
           io.aximm32.writeAddr.valid := Bool(true)
 
           when(io.aximm32.writeAddr.ready) {
             regWriteReqPtr := regWriteReqPtr + UInt(4)
+            regWriteReqCnt := regWriteReqCnt + UInt(1)
             regState := sRead
           }
+        }
+        .otherwise {
+          regState := sRead
         }
       }
 
