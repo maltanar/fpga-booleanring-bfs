@@ -1,4 +1,4 @@
-scalaVersion := "2.10.2"
+scalaVersion := "2.10.4"
 
 addSbtPlugin("com.github.scct" % "sbt-scct" % "0.2")
 
