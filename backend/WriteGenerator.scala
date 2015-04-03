@@ -30,7 +30,7 @@ class WriteGenerator() extends Module {
   val regWritePtr = Reg(init=UInt(0,32))
   val regWriteData = Reg(init=UInt(0, mmapDataBits))
 
-  val sIdle :: sFetch :: sReq :: sSend :: sWaitResp :: Nil = Enum(UInt(), 5)
+  val sIdle :: sFetch :: sReq :: sSend :: Nil = Enum(UInt(), 4)
   val regState = Reg(init=UInt(sIdle))
 
 
@@ -40,7 +40,7 @@ class WriteGenerator() extends Module {
   io.writeCount := regWriteCount
   // write data in and response in channels
   io.writeDataIn.ready := Bool(false)
-  io.writeRespIn.ready := Bool(false)
+  io.writeRespIn.ready :=(regState != sIdle)
   // write address channel - the parts that change
   io.writeAddrOut.valid := Bool(false)
   io.writeAddrOut.bits.addr := regWritePtr
@@ -60,8 +60,8 @@ class WriteGenerator() extends Module {
   io.writeDataOut.bits.last := Bool(true)  // single beat burst - always "last" beat
 
   // TODO improve write performance:
-  // - use write bursts instead of single beat
-  // - do not wait on response
+  // - use write bursts instead of single beat (use FIFO data count)
+  // - let AXI pull the data directly from writeDataIn
 
   switch(regState) {
       is(sIdle) {
@@ -101,21 +101,10 @@ class WriteGenerator() extends Module {
         io.writeDataOut.valid := Bool(true)
 
         when (io.writeDataOut.ready) {
-          regState := sWaitResp
-        }
-      }
-
-      is(sWaitResp) {
-        // wait for write complete response
-        io.writeRespIn.ready := Bool(true)
-
-        when (io.writeRespIn.valid) {
+          regState := sFetch
           // increment write counter
           regWriteCount := regWriteCount + UInt(1)
-          regState := sFetch
         }
       }
   }
-
-
 }

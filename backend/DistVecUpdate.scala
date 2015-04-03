@@ -31,7 +31,7 @@ class DistVecUpdater() extends Module {
   val regDistVecUpdateAddr = Reg(init=UInt(0,32))
   val regCurrentLevel = Reg(init=UInt(0,32))
 
-  val sIdle :: sFetch :: sReq :: sSend :: sWaitResp :: Nil = Enum(UInt(), 5)
+  val sIdle :: sFetch :: sReq :: Nil = Enum(UInt(), 3)
   val regState = Reg(init=UInt(sIdle))
 
   // default outputs
@@ -39,14 +39,14 @@ class DistVecUpdater() extends Module {
   io.distVecUpdateCount := regDistVecUpdateCount
   // write data in and response in channels
   io.distVecInds.ready := Bool(false)
-  io.writeRespIn.ready := Bool(false)
+  io.writeRespIn.ready := (regState != sIdle)
   // write address channel
   io.writeAddrOut.valid := Bool(false)
   io.writeAddrOut.bits.addr := regDistVecUpdateAddr
   io.writeAddrOut.bits.prot := UInt(0)
 
   // write data channel
-  io.writeDataOut.valid := Bool(false)
+  io.writeDataOut.valid := (regState != sIdle)
   io.writeDataOut.bits.data := regCurrentLevel
   io.writeDataOut.bits.strb := UInt("b1111")  // all bytelanes valid
 
@@ -79,25 +79,6 @@ class DistVecUpdater() extends Module {
         io.writeAddrOut.valid := Bool(true)
 
         when (io.writeAddrOut.ready) {
-          regState := sSend
-        }
-      }
-
-      is(sSend) {
-        // dispatch the data
-        io.writeDataOut.valid := Bool(true)
-
-        when (io.writeDataOut.ready) {
-          regState := sWaitResp
-        }
-      }
-
-      is(sWaitResp) {
-        // wait for write complete response
-        io.writeRespIn.ready := Bool(true)
-
-        when (io.writeRespIn.valid) {
-          // increment dv update count
           regDistVecUpdateCount := regDistVecUpdateCount + UInt(1)
           regState := sFetch
         }
