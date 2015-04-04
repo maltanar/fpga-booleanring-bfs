@@ -16,7 +16,7 @@ class AXIAddress(addrWidthBits: Int, idBits: Int) extends Bundle {
   val addr    = UInt(width = addrWidthBits)
   // size of data beat in bytes
   // set to UInt(log2Up((dataBits/8)-1)) for full-width bursts
-  val size    = UInt(width = 3) 
+  val size    = UInt(width = 3)
   // number of data beats -1 in burst: max 255 for incrementing, 15 for wrapping
   val len     = UInt(width = 8)
   // burst mode: 0 for fixed, 1 for incrementing, 2 for wrapping
@@ -61,19 +61,19 @@ class AXIReadData(dataWidthBits: Int, idBits: Int) extends Bundle {
 
 // TODO add full slave interface definition
 
-class AXIMasterIF(addrWidthBits: Int, dataWidthBits: Int, idBits: Int) extends Bundle {  
+class AXIMasterIF(addrWidthBits: Int, dataWidthBits: Int, idBits: Int) extends Bundle {
   // write address channel
   val writeAddr   = Decoupled(new AXIAddress(addrWidthBits, idBits))
   // write data channel
   val writeData   = Decoupled(new AXIWriteData(dataWidthBits))
   // write response channel (for memory consistency)
   val writeResp   = Decoupled(new AXIWriteResponse(idBits)).flip
-  
+
   // read address channel
   val readAddr    = Decoupled(new AXIAddress(addrWidthBits, idBits))
   // read data channel
   val readData    = Decoupled(new AXIReadData(dataWidthBits, idBits)).flip
-  
+
   // rename signals to be compatible with those in the Xilinx template
   def renameSignals(ifName: String) {
     // write address channel
@@ -119,18 +119,18 @@ class AXIMasterIF(addrWidthBits: Int, dataWidthBits: Int, idBits: Int) extends B
     readData.valid.setName(ifName + "_RVALID")
     readData.ready.setName(ifName + "_RREADY")
   }
-  
+
   override def clone = { new AXIMasterIF(addrWidthBits, dataWidthBits, idBits).asInstanceOf[this.type] }
 }
 
 
-class AXIMasterReadOnlyIF(addrWidthBits: Int, dataWidthBits: Int, idBits: Int) extends Bundle {  
+class AXIMasterReadOnlyIF(addrWidthBits: Int, dataWidthBits: Int, idBits: Int) extends Bundle {
 
   // read address channel
   val readAddr    = Decoupled(new AXIAddress(addrWidthBits, idBits))
   // read data channel
   val readData    = Decoupled(new AXIReadData(dataWidthBits, idBits)).flip
-  
+
   // rename signals to be compatible with those in the Xilinx template
   def renameSignals(ifName: String) {
     // read address channel
@@ -153,7 +153,46 @@ class AXIMasterReadOnlyIF(addrWidthBits: Int, dataWidthBits: Int, idBits: Int) e
     readData.valid.setName(ifName + "_RVALID")
     readData.ready.setName(ifName + "_RREADY")
   }
-  
+
+  override def clone = { new AXIMasterReadOnlyIF(addrWidthBits, dataWidthBits, idBits).asInstanceOf[this.type] }
+}
+
+class AXIMasterWriteOnlyIF(addrWidthBits: Int, dataWidthBits: Int, idBits: Int) extends Bundle {
+
+  // write address channel
+  val writeAddr   = Decoupled(new AXIAddress(addrWidthBits, idBits))
+  // write data channel
+  val writeData   = Decoupled(new AXIWriteData(dataWidthBits))
+  // write response channel (for memory consistency)
+  val writeResp   = Decoupled(new AXIWriteResponse(idBits)).flip
+
+  // rename signals to be compatible with those in the Xilinx template
+  def renameSignals(ifName: String) {
+    // write address channel
+    writeAddr.bits.addr.setName(ifName + "_AWADDR")
+    writeAddr.bits.prot.setName(ifName + "_AWPROT")
+    writeAddr.bits.size.setName(ifName + "_AWSIZE")
+    writeAddr.bits.len.setName(ifName + "_AWLEN")
+    writeAddr.bits.burst.setName(ifName + "_AWBURST")
+    writeAddr.bits.lock.setName(ifName + "_AWLOCK")
+    writeAddr.bits.cache.setName(ifName + "_AWCACHE")
+    writeAddr.bits.qos.setName(ifName + "_AWQOS")
+    writeAddr.bits.id.setName(ifName + "_AWID")
+    writeAddr.valid.setName(ifName + "_AWVALID")
+    writeAddr.ready.setName(ifName + "_AWREADY")
+    // write data channel
+    writeData.bits.data.setName(ifName + "_WDATA")
+    writeData.bits.strb.setName(ifName + "_WSTRB")
+    writeData.bits.last.setName(ifName + "_WLAST")
+    writeData.valid.setName(ifName + "_WVALID")
+    writeData.ready.setName(ifName + "_WREADY")
+    // write response channel
+    writeResp.bits.resp.setName(ifName + "_BRESP")
+    writeResp.bits.id.setName(ifName + "_BID")
+    writeResp.valid.setName(ifName + "_BVALID")
+    writeResp.ready.setName(ifName + "_BREADY")
+  }
+
   override def clone = { new AXIMasterReadOnlyIF(addrWidthBits, dataWidthBits, idBits).asInstanceOf[this.type] }
 }
 

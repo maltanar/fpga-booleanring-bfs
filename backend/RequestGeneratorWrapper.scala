@@ -10,7 +10,7 @@ import AXILiteDefs._
 class RequestGeneratorWrapper() extends Module {
   val io = new Bundle {
     val mmap = new AXIMasterIF(32, 64, 2)
-    val distVecWrite = new AXILiteMasterWriteOnlyIF(32, 32)
+    val distVecWrite = new AXIMasterWriteOnlyIF(32, 32, 2)
     val strm = Decoupled(new AXIReadData(64, 2))
     val writeDataIn = new AXIStreamSlaveIF(UInt(width = 64))
     val distVecInds = new AXIStreamSlaveIF(UInt(width = 32))
