@@ -12,7 +12,7 @@ ClassicalBFSOperation::~ClassicalBFSOperation()
     delete m_frontier;
 }
 
-void ClassicalBFSOperation::step()
+unsigned int ClassicalBFSOperation::step()
 {
     // perform the classical BFS algorithm
     unsigned int * ptrs = m_graph->colPtr;
@@ -43,10 +43,12 @@ void ClassicalBFSOperation::step()
     m_frontier = nextFrontier;
     m_nextDistance++;
 
-    if(m_frontier->empty())
+    if(m_frontier->empty()) {
     	m_isConverged = true;
+    	return 0;
+    }
     else {
-    	std::cout << "Frontier size at step " << m_nextDistance << " = " << m_frontier->size() << std::endl;
+    	return m_frontier->size();
     }
 
 }

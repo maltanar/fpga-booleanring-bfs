@@ -9,6 +9,22 @@
 #define GRAPHMANAGER_H_
 
 #include <assert.h>
+#include <stdint.h>
+
+extern unsigned int matrixCountP1;
+extern unsigned int matrixCountP2;
+extern unsigned int matrixCountP4;
+
+void * loadMatrixP1(unsigned int id);
+void * loadMatrixP2(unsigned int id);
+void * loadMatrixP4(unsigned int id);
+
+const char * getMatrixNameP1(unsigned int id);
+const char * getMatrixNameP2(unsigned int id);
+const char * getMatrixNameP4(unsigned int id);
+#define VERBOSE(x)	x;
+
+typedef unsigned int DistVecElem;
 
 typedef struct {
 	unsigned int rows;

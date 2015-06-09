@@ -10,7 +10,7 @@ public:
     ClassicalBFSOperation(GraphMatrixData * graph);
     ~ClassicalBFSOperation();
 
-    virtual void step();
+    virtual unsigned int step();
     virtual void resetBFS();
     virtual void setRootNode(unsigned int number);
 

@@ -11,10 +11,10 @@
 #include "GraphManager.h"
 
 #define		INPVEC_ALIGN		8
-// should be aligned to data_per_beat * burst_beats
-#define		COLPTR_ALIGN		64		// 2 data per beat, 8 beats
-#define		ROWIND_ALIGN		256		// 2 data per beat, 128 beats
-#define 	BRAM_WORD_COUNT		8192
+// TODO do we need more conservative alignment for bursts? this seems to work (aligned to 8 bytes)
+#define		COLPTR_ALIGN		8
+#define		ROWIND_ALIGN		8
+#define 	BRAM_WORD_COUNT		28*1024
 #define		BRAM_BIT_COUNT		(BRAM_WORD_COUNT * 32)
 
 class BFSAccelerator {
@@ -25,7 +25,7 @@ public:
 	void setInterfaceRegs(unsigned int inputRegBaseAddr, unsigned int outputRegBaseAddr);
 
 	void printOutputVector();
-	void printFrontendStats();
+	void printAcceleratorStats();
 	void printFIFODataCounts();
 	void printAcceleratorState();
 	void printFrontendProfile();
@@ -35,6 +35,11 @@ public:
 	void start();
 	bool isFinished();
 	void deinit();
+	void resetAccelerator();
+
+	void startLevelUpdate(unsigned int level, DistVecElem * distVecBase);
+	bool isFinishedLevelUpdate();
+	volatile unsigned int getLevelUpdateCount() {return m_inputRegs[feStatUpdateCount];};
 
 	// functions to manage the internal result memory
 	void setBRAMAccessMux(bool bEnableSwCtrl);
@@ -48,7 +53,8 @@ protected:
 		feStateReadColLen = 1,
 		feStateProcessUpper = 2,
 		feStateProcessBoth = 3,
-		feStateFinished = 4
+		feStateFinished = 4,
+		feStateResDump = 5
 	} FrontendTurboStates;
 
 	typedef enum {
@@ -61,22 +67,30 @@ protected:
 	} BackendStates;
 
 	typedef enum {
-		rgCtrlStart = 0,
+		rgControl = 0,
 		rgCtrlNZCount = 1,
 		rgCtrlColCount = 2,
 		rgCtrlColLenPtr = 3,
 		rgCtrlRowIndPtr = 4,
 		rgCtrlDVPtr = 5,
 		rgStatState = 0,
-		rgStatRResp = 4
+		rgStatRResp = 4,
+		rgStatWriteState = 10,
+		rgStatWriteCount = 11,
+		rgCtrlDistVecBase = 13,
+		rgCtrlCurrentLevel = 14,
+		rgStatDistVecUpdateCount = 12,
+		rgCtrlInpVecWritePtr = 15
 	} ReqGenRegisters;
 
 	typedef enum {
-		feCtrlStart = 6,
+		feControl = 6,
 		feCtrlColCount = 7,
 		feStatState = 1,
 		feStatColCount = 2,
-		feStatNZCount = 3
+		feStatNZCount = 3,
+		feCtrlRowCount = 11,
+		feStatUpdateCount = 12
 	} FrontendRegisters;
 
 	typedef enum {
@@ -84,14 +98,10 @@ protected:
 		ctlBRAMDataOut = 9,
 		ctlBRAMDataIn = 8,
 		ctlBRAMWrEn = 10,
-		ctlResetFIFOs = 11,
-		ctlColPtrFIFOFullThreshold = 12,
-		ctlRowIndFIFOFullThreshold = 13,
-		ctlDenVecFIFOFullThreshold = 14,
+		ctlThresholds = 12,
 		statColPtrFIFODataCount = 5,
 		statRowIndFIFODataCount = 6,
 		statDenVecFIFODataCount = 7,
-		ctlBRAMMux = 15,
 		statFEProfile = 9,
 	} MiscRegisters;
 
@@ -101,10 +111,9 @@ protected:
 	GraphMatrixData * m_graph;
 	unsigned int * m_inputVectorBits;
 
+	void setThresholds(unsigned int clThres, unsigned int riThres, unsigned int dvThres);
 	void setupBackend();
 	void setupFrontend();
-	void resetFIFOs();
-
 };
 
 #endif /* BFSACCELERATOR_H_ */

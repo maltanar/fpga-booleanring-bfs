@@ -8,6 +8,7 @@ BFSOperation::BFSOperation(GraphMatrixData *graph)
 {
 	m_graph = graph;
 	m_isConverged = false;
+	m_isResultVectorAllocatedByMe = true;
 	m_resultCount = 0;
 
     assert(m_graph);
@@ -16,7 +17,7 @@ BFSOperation::BFSOperation(GraphMatrixData *graph)
     assert(m_graph->rows == m_graph->cols);
 
     m_graph = graph;
-    m_resultVector = new int[graph->rows];
+    m_resultVector = new DistVecElem[graph->rows];
 
     assert(m_resultVector);
 
@@ -25,7 +26,8 @@ BFSOperation::BFSOperation(GraphMatrixData *graph)
 
 BFSOperation::~BFSOperation()
 {
-    delete [] m_resultVector;
+	if(m_isResultVectorAllocatedByMe)
+		delete [] m_resultVector;
 }
 
 void BFSOperation::resetBFS()
@@ -33,7 +35,7 @@ void BFSOperation::resetBFS()
     m_rootNode = 0;
     m_nextDistance = 0;
     m_resultCount = 0;
-    memset(m_resultVector, -1, sizeof(int) * m_graph->rows);
+    memset(m_resultVector, -1, sizeof(DistVecElem) * m_graph->rows);
 }
 
 void BFSOperation::setRootNode(unsigned int number)
@@ -55,7 +57,7 @@ unsigned int BFSOperation::getNextDistance()
     return m_nextDistance;
 }
 
-int *BFSOperation::getResultVector()
+DistVecElem *BFSOperation::getResultVector()
 {
     return m_resultVector;
 }
@@ -75,4 +77,15 @@ void BFSOperation::printResultVector() {
 		}
 	}
 
+}
+
+void BFSOperation::setResultVector(DistVecElem* resvec) {
+	if(m_isResultVectorAllocatedByMe)
+		delete [] m_resultVector;
+	m_isResultVectorAllocatedByMe = false;
+	m_resultVector = resvec;
+}
+
+void BFSOperation::setNextDistance(unsigned int dist) {
+	m_nextDistance = dist;
 }

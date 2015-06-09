@@ -57,7 +57,7 @@ void GraphManager::dumpPartitionData(unsigned int no) const {
 	cout << "Dump for partition " << no << endl;
 	cout << "===========================================" << endl;
 	cout << "ColPtr 0x" << hex << getPartitionColPtr(no) << dec << endl;
-	for(unsigned int i=0; i < data->cols+1; i++) {
+	for (unsigned int i = 0; i < data->cols + 1; i++) {
 		cout << data->colPtr[i] << " ";
 	}
 	cout << endl;
@@ -65,28 +65,40 @@ void GraphManager::dumpPartitionData(unsigned int no) const {
 
 void GraphManager::parseConfig(unsigned int * configBase) {
 // first 4 bytes of config is number of partitions (P)
-m_partitionCount = configBase[0];
+	m_partitionCount = configBase[0];
 // next 4 * P bytes are P pointers to partition configs
-m_partitions = (GraphMatrixData **) &(configBase[1]);
+	m_partitions = (GraphMatrixData **) &(configBase[1]);
+
+	VERBOSE(cout << "partitions: " << m_partitionCount << endl);
 
 // for now, limit partition count to be 0 < p = 16
-assert(m_partitionCount > 0);
-assert(m_partitionCount <= 16);
+	assert(m_partitionCount > 0);
+	assert(m_partitionCount <= 16);
 
-m_rowCount = 0;
-m_colCount = m_partitions[0]->cols;
-m_nzCount = 0;
-m_largestPartitionRowCount = 0;
+	m_rowCount = 0;
+	m_colCount = m_partitions[0]->cols;
+	m_nzCount = 0;
+	m_largestPartitionRowCount = 0;
 
-for (unsigned int i = 0; i < m_partitionCount; i++) {
-	GraphMatrixData * partition = m_partitions[i];
-	// assume horizontal cuts - total rows is the sum of partitions
-	m_rowCount += partition->rows;
-	m_nzCount += partition->nz;
-	m_largestPartitionRowCount = (
-			m_rowCount > m_largestPartitionRowCount ?
-					m_rowCount : m_largestPartitionRowCount);
-	// all partitions should have equal num of cols
-	assert(m_colCount == partition->cols);
-}
+	for (unsigned int i = 0; i < m_partitionCount; i++) {
+		GraphMatrixData * partition = m_partitions[i];
+		// assume horizontal cuts - total rows is the sum of partitions
+		m_rowCount += partition->rows;
+		m_nzCount += partition->nz;
+		m_largestPartitionRowCount = (
+				partition->rows > m_largestPartitionRowCount ?
+						partition->rows : m_largestPartitionRowCount);
+		// all partitions should have equal num of cols
+		assert(m_colCount == partition->cols);
+	}
+
+	if(m_rowCount != m_colCount && m_partitionCount == 1) {
+		VERBOSE(cout << "Applying rows != cols hack for 1 partition" << endl);
+		unsigned int min = (m_rowCount < m_colCount ? m_rowCount : m_colCount);
+
+		m_rowCount = min;
+		m_colCount = min;
+		m_partitions[0]->cols = min;
+		m_partitions[0]->rows = min;
+	}
 }

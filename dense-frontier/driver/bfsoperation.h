@@ -9,7 +9,7 @@ public:
     BFSOperation(GraphMatrixData * graph);
     ~BFSOperation();
 
-    virtual void step() = 0;
+    virtual unsigned int step() = 0;
 
     virtual void resetBFS();
 
@@ -18,8 +18,10 @@ public:
     virtual void setRootNode(unsigned int number);
     unsigned int getRootNode();
     unsigned int getNextDistance();
+    void setNextDistance(unsigned int dist);
 
-    int *getResultVector();
+    DistVecElem *getResultVector();
+    void setResultVector(DistVecElem * resvec);
 
     void printResultVector();
 
@@ -30,11 +32,12 @@ public:
 protected:
     GraphMatrixData * m_graph;
 
-    unsigned int m_nextDistance;
-    int * m_resultVector;
+    DistVecElem m_nextDistance;
+    DistVecElem * m_resultVector;
     unsigned int m_rootNode;
     unsigned int m_resultCount;
     bool m_isConverged;
+    bool m_isResultVectorAllocatedByMe;
 
 };
 
